@@ -4,6 +4,8 @@ A modern TypeScript rewrite of the classic [JS-Clock](https://www.tcpweb.com.br/
 
 ![Test Coverage](https://img.shields.io/badge/coverage-99.74%25%20lines%20%7C%2098.32%25%20branches-brightgreen)
 
+Check out this project's demo [here](https://www.tcpweb.com.br/new-js-clock/).
+
 ## 🚀 What's New in Version 1.0.0
 
 - **🔒 TypeScript**: Full type safety with comprehensive interfaces

@@ -492,7 +492,7 @@ const tests = [
   {
     name: "Repeated hide/show cycles do not cause drift on rAF clock",
     run: async (driver) => {
-      await setClockTime(driver, "clockRaf", "10:00:00:00");
+      // clockRaf is system-driven, so avoid setTime() baselines that can race with wall-clock resync.
       await startClock(driver, "clockRaf");
 
       const beforeMs = parseClockTextToMs(await getClockTime(driver, "clockRaf"));
@@ -532,7 +532,7 @@ const tests = [
   {
     name: "12-hour clock keeps format and advances while hidden",
     run: async (driver) => {
-      await setClockTime(driver, "clock12h", "11:59:50");
+      // clock12h is system-driven, so baseline from current wall-clock rather than forcing setTime().
       await startClock(driver, "clock12h");
 
       const beforeMs = parseClockTextToMs(await getClockTime(driver, "clock12h"));
