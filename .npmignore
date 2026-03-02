@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+tests/
+scripts/
+docs/
+tsconfig.json
+jest.config.cjs
+eslint.config.js
+.gitignore
+*.ts
+!*.d.ts
+pnpm-lock.yaml

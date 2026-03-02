@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New JS Clock - API Reference & Documentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <style>
+    :root {
+      --bg-deepest: #0a0e14;
+      --bg-deep: #0d1117;
+      --bg-card: #131920;
+      --bg-surface: #1a2332;
+      --bg-terminal: #0b0f14;
+      --border-subtle: #1e2a3a;
+      --border-glow: rgba(0, 212, 255, 0.15);
+      --text-primary: #c9d1d9;
+      --text-secondary: #8b949e;
+      --text-muted: #484f58;
+      --cyan: #00d4ff;
+      --cyan-dim: rgba(0, 212, 255, 0.6);
+      --cyan-glow: rgba(0, 212, 255, 0.08);
+      --green: #00ff88;
+      --green-dim: rgba(0, 255, 136, 0.6);
+      --green-glow: rgba(0, 255, 136, 0.08);
+      --amber: #ffb000;
+      --amber-dim: rgba(255, 176, 0, 0.6);
+      --amber-glow: rgba(255, 176, 0, 0.08);
+      --red: #ff4757;
+      --red-dim: rgba(255, 71, 87, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background: var(--bg-deepest);
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* Scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.03) 2px,
+        rgba(0, 0, 0, 0.03) 4px
+      );
+    }
+
+    /* Subtle background glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(circle at 25% 25%, rgba(0, 212, 255, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(0, 255, 136, 0.02) 0%, transparent 50%);
+    }
+
+    /* Selection */
+    ::selection {
+      background: rgba(0, 212, 255, 0.2);
+      color: var(--cyan);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ---- HEADER ---- */
+    header {
+      text-align: center;
+      padding: 3rem 2rem;
+      margin: -2rem -2rem 3rem -2rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--green) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+      letter-spacing: 0.03em;
+    }
+
+    /* ---- NAV ---- */
+    nav {
+      background: var(--bg-card);
+      padding: 1.5rem 2rem;
+      margin: -2rem -2rem 3rem -2rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.15rem 0.25rem;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav a {
+      color: var(--cyan);
+      text-decoration: none;
+      font-weight: 600;
+      padding: 0.3rem 0.4rem;
+      border-radius: 4px;
+      transition: background 0.2s;
+      font-size: 0.8rem;
+    }
+
+    nav a:hover {
+      background: var(--cyan-glow);
+    }
+
+    nav .nav-separator {
+      border-left: 2px solid var(--border-subtle);
+      margin: 0 0.1rem;
+    }
+
+    /* ---- SECTIONS ---- */
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ---- HEADINGS ---- */
+    h2 {
+      color: var(--cyan);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 1.2rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h2::before {
+      content: '#';
+      color: var(--text-muted);
+    }
+
+    h3 {
+      color: var(--text-primary);
+      margin: 2rem 0 1rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    h4 {
+      color: var(--text-secondary);
+      margin: 1.5rem 0 0.5rem 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* ---- CODE ---- */
+    code {
+      background: var(--bg-surface);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      color: var(--cyan);
+      border: 1px solid var(--border-subtle);
+    }
+
+    pre {
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      border: 1px solid var(--border-subtle);
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.85em;
+      border: none;
+      color: var(--text-primary);
+    }
+
+    .hljs {
+      padding: 1.25rem;
+      border-radius: 6px;
+      background: var(--bg-terminal) !important;
+    }
+
+    /* ---- CODE TABS ---- */
+    .code-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.5rem;
+    }
+
+    .code-tab {
+      font-family: 'JetBrains Mono', monospace;
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      cursor: pointer;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .code-tab.active {
+      background: rgba(0, 212, 255, 0.12);
+      border-color: rgba(0, 212, 255, 0.3);
+      color: var(--cyan);
+    }
+
+    .code-tab:hover:not(.active) {
+      background: rgba(139, 148, 158, 0.08);
+      border-color: var(--text-muted);
+      color: var(--text-primary);
+    }
+
+    .code-content {
+      display: none;
+    }
+
+    .code-content.active {
+      display: block;
+    }
+
+    /* ---- METHOD SIGNATURE ---- */
+    .method-signature {
+      background: var(--bg-surface);
+      border-left: 4px solid var(--cyan);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .method-signature code {
+      background: none;
+      font-size: 1em;
+      color: var(--text-primary);
+      border: none;
+    }
+
+    /* ---- TABLES ---- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.88rem;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    th {
+      background: var(--bg-surface);
+      font-weight: 600;
+      color: var(--cyan);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    td {
+      color: var(--text-secondary);
+    }
+
+    tr:hover {
+      background: rgba(0, 212, 255, 0.03);
+    }
+
+    /* ---- BADGES ---- */
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-required {
+      background: rgba(255, 71, 87, 0.12);
+      color: var(--red);
+      border: 1px solid rgba(255, 71, 87, 0.2);
+    }
+
+    .badge-optional {
+      background: rgba(0, 255, 136, 0.1);
+      color: var(--green);
+      border: 1px solid rgba(0, 255, 136, 0.2);
+    }
+
+    .badge-type {
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+    }
+
+    /* ---- EXAMPLE BOX ---- */
+    .example-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+    }
+
+    .example-box h4 {
+      color: var(--cyan);
+      margin-top: 0;
+    }
+
+    .example-box pre {
+      margin: 0;
+    }
+
+    .example-box p {
+      margin-bottom: 0.75rem;
+    }
+
+    /* ---- NOTE ---- */
+    .note {
+      background: rgba(255, 176, 0, 0.06);
+      border-left: 4px solid var(--amber);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0 8px 8px 0;
+      border-top: 1px solid rgba(255, 176, 0, 0.1);
+      border-right: 1px solid rgba(255, 176, 0, 0.1);
+      border-bottom: 1px solid rgba(255, 176, 0, 0.1);
+    }
+
+    .note strong {
+      color: var(--amber);
+    }
+
+    /* ---- TIP ---- */
+    .tip {
+      background: rgba(0, 212, 255, 0.06);
+      border-left: 4px solid var(--cyan);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0 8px 8px 0;
+      border-top: 1px solid rgba(0, 212, 255, 0.1);
+      border-right: 1px solid rgba(0, 212, 255, 0.1);
+      border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+    }
+
+    .tip strong {
+      color: var(--cyan);
+    }
+
+    /* ---- LISTS ---- */
+    ul, ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    li strong {
+      color: var(--green);
+    }
+
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+      border-bottom: 1px dashed var(--cyan-dim);
+      transition: border-color 0.2s ease;
+    }
+
+    a:hover {
+      border-bottom-color: var(--cyan);
+    }
+
+    /* ---- FOOTER ---- */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      margin-top: 3rem;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.85rem;
+    }
+
+    footer p {
+      color: var(--text-muted);
+    }
+
+    footer p + p {
+      margin-top: 0.25rem;
+    }
+
+    footer a {
+      color: var(--cyan);
+    }
+
+    /* ---- RESPONSIVE ---- */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      header {
+        padding: 2rem 1rem;
+        margin: -1rem -1rem 2rem -1rem;
+      }
+
+      nav {
+        padding: 1rem;
+        margin: -1rem -1rem 2rem -1rem;
+      }
+
+      .section {
+        padding: 1.25rem;
+      }
+
+      table {
+        font-size: 0.8rem;
+      }
+
+      th, td {
+        padding: 0.5rem;
+      }
+    }
+    .github-corner:hover .octo-arm{
+      animation:octocat-wave 560ms ease-in-out
+    }
+    @keyframes octocat-wave{
+      0%,100%{
+        transform:rotate(0)
+      }
+      20%,60%{
+        transform:rotate(-25deg)
+      }40%,80%{
+        transform:rotate(10deg)
+      }
+    }
+    @media (max-width:500px){
+      .github-corner:hover .octo-arm{
+        animation:none
+      }.github-corner .octo-arm{
+          animation:octocat-wave 560ms ease-in-out
+        }
+    }
+    .github-corner {
+      z-index: 9999;           /* extra insurance */
+      pointer-events: auto;    /* makes sure hover works even over other overlays */
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>New JS Clock</h1>
+      <p class="subtitle">Modern JavaScript/TypeScript Clock Library - API Reference & Usage Guide</p>
+    </header>
+
+    <nav>
+      <ul>
+        <li><a href="/new-js-clock/">Live Demo</a></li>
+        <li class="nav-separator"></li>
+        <li><a href="#installation">Installation</a></li>
+        <li><a href="#api">API Reference</a></li>
+        <li><a href="#examples">Examples</a></li>
+        <li><a href="#time-format">Time Formats</a></li>
+        <li><a href="#errors">Error Handling</a></li>
+        <li><a href="#migration">Migration Guide</a></li>
+        <li><a href="#browser-support">Browser Support</a></li>
+        <li><a href="#bundlers">Bundler Config</a></li>
+      </ul>
+    </nav>
+
+    <div class="section" id="installation">
+      <h2>Installation & Setup</h2>
+
+      <h3>Option 1: ES Modules (Recommended)</h3>
+
+      <div class="code-tabs">
+        <button class="code-tab active" onclick="switchTab(this, 'js-install')">JavaScript</button>
+        <button class="code-tab" onclick="switchTab(this, 'ts-install')">TypeScript</button>
+      </div>
+
+      <div id="js-install" class="code-content active">
+        <pre><code class="language-javascript">// Import the createClock function
+import { createClock } from 'new-js-clock';
+
+// Create a clock
+const clock = createClock(document.getElementById('clock'));</code></pre>
+      </div>
+
+      <div id="ts-install" class="code-content">
+        <pre><code class="language-typescript">// Import with full TypeScript support
+import { createClock, ClockOptions, ClockInstance } from 'new-js-clock';
+
+// Create a clock with type safety
+const clock: ClockInstance = createClock(
+  document.getElementById('clock')!
+);
+
+// Or use the full options interface
+const options: ClockOptions = {
+  showCenti: true,
+  countdown: false
+};
+const precisionClock = createClock(
+  document.getElementById('precision')!,
+  '10:30:45',
+  options
+);</code></pre>
+      </div>
+
+      <pre><code class="language-javascript">// CommonJS support
+const { createClock } = require('new-js-clock');
+const clock = createClock(document.getElementById('clock'));</code></pre>
+
+      <h3>Option 2: CDN / Script Tag</h3>
+      <p>For direct browser usage without a bundler:</p>
+
+      <pre><code class="language-html">&lt;!-- Minified (recommended for production) --&gt;
+&lt;script src="https://unpkg.com/new-js-clock/dist/new-js-clock.min.js"&gt;&lt;/script&gt;
+
+&lt;!-- Or via jsDelivr --&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/new-js-clock/dist/new-js-clock.min.js"&gt;&lt;/script&gt;
+
+&lt;!-- Unminified (for debugging) --&gt;
+&lt;script src="https://unpkg.com/new-js-clock/dist/new-js-clock.js"&gt;&lt;/script&gt;
+
+&lt;script&gt;
+  // Library is available as global NewJSClock
+  var clock = NewJSClock.createClock(document.getElementById('clock'));
+
+  // All features work the same
+  var countdown = NewJSClock.createClock(
+    document.getElementById('timer'),
+    '00:05:00',
+    { countdown: true }
+  );
+&lt;/script&gt;</code></pre>
+
+      <div class="tip">
+        <strong>Tip:</strong> The script tag method is perfect for simple pages, internal tools, dashboards, or when you don't want to set up a build system.
+      </div>
+
+      <h3>Build from Source</h3>
+      <pre><code class="language-bash"># Clone the repository
+git clone https://github.com/thiago-cavalcanti/new-js-clock.git
+cd New-JS-Clock
+
+# Install dependencies
+pnpm install
+
+# Build (includes TypeScript type checking)
+pnpm run build
+
+# Run tests
+pnpm test
+
+# Run linting
+pnpm lint</code></pre>
+    </div>
+
+    <div class="section" id="api">
+      <h2>API Reference</h2>
+
+      <h3>createClock(element, initialTime?, options?)</h3>
+      <p>Creates a new clock instance attached to a DOM element.</p>
+
+      <div class="method-signature">
+        <code>createClock(element: HTMLElement, initialTime?: string, options?: ClockOptions): ClockInstance</code>
+      </div>
+
+      <h4>Parameters</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>element</code></td>
+            <td><span class="badge badge-type">HTMLElement</span></td>
+            <td><span class="badge badge-required">Required</span></td>
+            <td>The DOM element where the clock will be rendered</td>
+          </tr>
+          <tr>
+            <td><code>initialTime</code></td>
+            <td><span class="badge badge-type">string</span></td>
+            <td><span class="badge badge-optional">Optional</span></td>
+            <td>Start time in "HH:MM:SS" or "HH:MM:SS:CC" format. If omitted, uses system time.</td>
+          </tr>
+          <tr>
+            <td><code>options</code></td>
+            <td><span class="badge badge-type">ClockOptions</span></td>
+            <td><span class="badge badge-optional">Optional</span></td>
+            <td>Configuration options object</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>ClockOptions Interface</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Type</th>
+            <th>Default</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>showCenti</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Display centiseconds (hundredths of a second)</td>
+          </tr>
+          <tr>
+            <td><code>countdown</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Run as countdown timer instead of counting up</td>
+          </tr>
+          <tr>
+            <td><code>showHour</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>true</code></td>
+            <td>Show hours in the display</td>
+          </tr>
+          <tr>
+            <td><code>showMinute</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>true</code></td>
+            <td>Show minutes in the display</td>
+          </tr>
+          <tr>
+            <td><code>callback</code></td>
+            <td><span class="badge badge-type">function</span></td>
+            <td><code>undefined</code></td>
+            <td>Called when countdown reaches zero</td>
+          </tr>
+          <tr>
+            <td><code>use12Hour</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Use 12-hour format with AM/PM indicator</td>
+          </tr>
+          <tr>
+            <td><code>timezoneOffset</code></td>
+            <td><span class="badge badge-type">number</span></td>
+            <td><code>undefined</code></td>
+            <td>Static timezone offset in hours from UTC (e.g., -5 for EST, +1 for CET, +5.5 for IST). Does NOT handle DST.</td>
+          </tr>
+          <tr>
+            <td><code>timezone</code></td>
+            <td><span class="badge badge-type">string</span></td>
+            <td><code>undefined</code></td>
+            <td>IANA timezone name for DST-aware timezone support (e.g., "America/New_York", "Europe/London"). Automatically handles daylight saving time.</td>
+          </tr>
+          <tr>
+            <td><code>stopwatch</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Run as stopwatch (counts up from 00:00:00) instead of using system time</td>
+          </tr>
+          <tr>
+            <td><code>lap</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Enable lap/split mode - records lap times. Requires <code>stopwatch</code> to be enabled.</td>
+          </tr>
+          <tr>
+            <td><code>lapMode</code></td>
+            <td><span class="badge badge-type">"splits" | "laps" | "both"</span></td>
+            <td><code>"both"</code></td>
+            <td>Type of lap recording: "splits" (cumulative time since start), "laps" (time between laps), or "both"</td>
+          </tr>
+          <tr>
+            <td><code>lapWord</code></td>
+            <td><span class="badge badge-type">string</span></td>
+            <td><code>"Split"</code> in <code>lapMode: "splits"</code>, otherwise <code>"Lap"</code></td>
+            <td>Custom word to display before lap number (e.g., "Split", "Lap"). Set to <code>""</code> for no word.</td>
+          </tr>
+          <tr>
+            <td><code>useAnimationFrame</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Use requestAnimationFrame for smoother updates. Automatically falls back to setTimeout when the page is hidden (background tab).</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="tip">
+        <strong>Recommended:</strong> Use <code>timezone</code> with IANA names for DST-aware clocks. Use <code>timezoneOffset</code> only when you need a fixed offset that never changes.
+      </div>
+
+      <div class="note">
+        <strong>Note:</strong> The <code>timezoneOffset</code> parameter expects the <strong>absolute UTC offset</strong> for the target timezone, not a relative offset from local time. Pass the target timezone's UTC offset directly (e.g., <code>-5</code> for EST/UTC-5, <code>0</code> for GMT/UTC+0, <code>9</code> for JST/UTC+9). Do not calculate relative offsets from your local timezone.
+      </div>
+
+      <div class="note">
+        <strong>Note:</strong> The <code>timezone</code> parameter accepts IANA timezone identifiers (e.g., <code>"America/New_York"</code>, <code>"Europe/Paris"</code>, <code>"Asia/Tokyo"</code>). The browser's Intl API handles DST transitions automatically. You cannot use both <code>timezone</code> and <code>timezoneOffset</code> simultaneously.
+      </div>
+      <div class="note">
+        <strong>Note:</strong> In system/timezone modes (no custom <code>initialTime</code>), the clock derives display values from <code>Date</code>/<code>Intl</code> on every update tick for wall-clock accuracy. Increment/decrement ticking is used for countdown and stopwatch/custom-time modes.
+      </div>
+
+      <div class="tip">
+        <strong>useAnimationFrame Option:</strong> When enabled, the clock uses <code>requestAnimationFrame</code> for smoother visual updates synced to your display's refresh rate (60/120/144Hz). When the page is hidden (background tab), it automatically falls back to <code>setTimeout</code> to ensure the clock stays accurate. This is ideal for stopwatches and visual timers where smoothness matters, while still maintaining accuracy when the user switches tabs.
+      </div>
+
+      <h4>ClockInstance Interface</h4>
+      <p>The <code>createClock</code> function returns an object with the following methods:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Returns</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>getTime()</code></td>
+            <td><span class="badge badge-type">string</span></td>
+            <td>Returns the current time as a formatted string (e.g., "14:30:25" or "14:30:25:50")</td>
+          </tr>
+          <tr>
+            <td><code>setTime(timeString)</code></td>
+            <td><span class="badge badge-type">void</span></td>
+            <td>Sets a new time for the clock without destroying the instance. Accepts "HH:MM:SS" or "HH:MM:SS:CC" format.</td>
+          </tr>
+          <tr>
+            <td><code>startClock()</code></td>
+            <td><span class="badge badge-type">void</span></td>
+            <td>Starts or resumes the clock if it was stopped</td>
+          </tr>
+          <tr>
+            <td><code>stopClock()</code></td>
+            <td><span class="badge badge-type">void</span></td>
+            <td>Pauses the clock</td>
+          </tr>
+          <tr>
+            <td><code>toggleClock()</code></td>
+            <td><span class="badge badge-type">void</span></td>
+            <td>Toggles between running and stopped states</td>
+          </tr>
+          <tr>
+            <td><code>isRunning()</code></td>
+            <td><span class="badge badge-type">boolean</span></td>
+            <td>Returns true if the clock is currently running</td>
+          </tr>
+          <tr>
+            <td><code>reset()</code></td>
+            <td><span class="badge badge-type">void</span></td>
+            <td>Resets the clock to its initial time and restarts it. Perfect for countdown timers!</td>
+          </tr>
+          <tr>
+            <td><code>lap()</code></td>
+            <td><span class="badge badge-type">string</span></td>
+            <td>Records a lap/split time and returns it as a string. Only works when <code>lap</code> option is enabled.</td>
+          </tr>
+          <tr>
+            <td><code>getLaps()</code></td>
+            <td><span class="badge badge-type">string[]</span></td>
+            <td>Returns an array of all recorded lap/split times based on <code>lapMode</code>. Only works when <code>lap</code> is enabled.</td>
+          </tr>
+          <tr>
+            <td><code>getSplitTimes()</code></td>
+            <td><span class="badge badge-type">string[]</span></td>
+            <td>Returns an array of split times (cumulative). Only works when <code>lap</code> is enabled with <code>lapMode</code> "splits" or "both".</td>
+          </tr>
+          <tr>
+            <td><code>getLapTimes()</code></td>
+            <td><span class="badge badge-type">string[]</span></td>
+            <td>Returns an array of lap times (time between laps). Only works when <code>lap</code> is enabled with <code>lapMode</code> "laps" or "both".</td>
+          </tr>
+          <tr>
+            <td><code>getLapRecords()</code></td>
+            <td><span class="badge badge-type">LapRecord[]</span></td>
+            <td>Returns an array of lap records with full details (lapNumber, lapTime, splitTime, preciseElapsedMs, timestamp). Only works when <code>lap</code> is enabled.</td>
+          </tr>
+          <tr>
+            <td><code>clearLaps()</code></td>
+            <td><span class="badge badge-type">void</span></td>
+            <td>Clears all recorded lap/split times. Only works when <code>lap</code> is enabled.</td>
+          </tr>
+          <tr>
+            <td><code>bestLap()</code></td>
+            <td><span class="badge badge-type">LapRecord | null</span></td>
+            <td>Returns the lap record with the fastest lap time. Only works when <code>lap</code> is enabled with <code>lapMode</code> "laps" or "both".</td>
+          </tr>
+          <tr>
+            <td><code>worstLap()</code></td>
+            <td><span class="badge badge-type">LapRecord | null</span></td>
+            <td>Returns the lap record with the slowest lap time. Only works when <code>lap</code> is enabled with <code>lapMode</code> "laps" or "both".</td>
+          </tr>
+          <tr>
+            <td><code>destroy()</code></td>
+            <td><span class="badge badge-type">void</span></td>
+            <td>Cleans up the clock instance, stops the timer, and clears the element</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <strong>Note:</strong> All methods are instance-specific. Each clock created with <code>createClock</code> operates independently of others.
+      </div>
+
+      <h4>LapRecord Interface</h4>
+      <p>The <code>LapRecord</code> interface contains detailed information about each recorded lap:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>lapNumber</code></td>
+            <td><span class="badge badge-type">number</span></td>
+            <td>The sequential lap number (1, 2, 3, ...)</td>
+          </tr>
+          <tr>
+            <td><code>lapTime</code></td>
+            <td><span class="badge badge-type">string</span></td>
+            <td>The lap time (time since last lap) in "HH:MM:SS" or "HH:MM:SS:CC" format</td>
+          </tr>
+          <tr>
+            <td><code>splitTime</code></td>
+            <td><span class="badge badge-type">string</span></td>
+            <td>The split time (cumulative time since start) in "HH:MM:SS" or "HH:MM:SS:CC" format</td>
+          </tr>
+          <tr>
+            <td><code>preciseElapsedMs</code></td>
+            <td><span class="badge badge-type">number</span></td>
+            <td>High-resolution lap delta in milliseconds (from <code>performance.now()</code>), enabling sub-millisecond precision for lap comparisons</td>
+          </tr>
+          <tr>
+            <td><code>timestamp</code></td>
+            <td><span class="badge badge-type">number</span></td>
+            <td>Unix timestamp (milliseconds) when the lap was recorded</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section" id="examples">
+      <h2>Usage Examples</h2>
+
+      <div class="example-box">
+        <h4>Example 1: Basic System Clock</h4>
+        <p>Display the current system time:</p>
+        <pre><code class="language-javascript">import { createClock } from 'new-js-clock';
+
+const clock = createClock(document.getElementById('clock'));
+
+// The clock automatically starts and syncs with system time
+// Display: "14:30:25" (updates every second)</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 2: High Precision Clock</h4>
+        <p>Show centiseconds for higher precision:</p>
+        <pre><code class="language-javascript">const clock = createClock(
+  document.getElementById('precision-clock'),
+  undefined,
+  { showCenti: true }
+);
+
+// Display: "14:30:25:83" (updates every 10ms)</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 3: Countdown Timer</h4>
+        <p>Create a countdown with a callback:</p>
+        <pre><code class="language-javascript">const countdown = createClock(
+  document.getElementById('timer'),
+  '00:05:00',  // 5 minutes
+  {
+    countdown: true,
+    callback: () => {
+      alert('Time is up!');
+      // Or play a sound, redirect, etc.
+    }
+  }
+);
+
+// Control the countdown
+countdown.stopClock();   // Pause
+countdown.startClock();  // Resume
+countdown.toggleClock(); // Toggle</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 4: Custom Start Time</h4>
+        <p>Start from a specific time and count up:</p>
+        <pre><code class="language-javascript">const custom = createClock(
+  document.getElementById('custom'),
+  '10:30:45'  // Start at this time
+);
+
+// Counts up from 10:30:45
+// Will roll over at 23:59:59 to 00:00:00</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 5: Multiple Independent Clocks</h4>
+        <p>Create multiple clocks that work independently:</p>
+        <pre><code class="language-javascript">// Clock 1: System time
+const clock1 = createClock(document.getElementById('clock1'));
+
+// Clock 2: Countdown from 10 minutes
+const clock2 = createClock(
+  document.getElementById('clock2'),
+  '00:10:00',
+  { countdown: true }
+);
+
+// Clock 3: Custom time with centiseconds
+const clock3 = createClock(
+  document.getElementById('clock3'),
+  '05:00:00',
+  { showCenti: true }
+);
+
+// Each clock operates independently!
+clock1.stopClock();  // Only stops clock1
+clock2.stopClock();  // Only stops clock2</code></pre>
+
+        <div class="tip">
+          <strong>Tip:</strong> This is the main bug fix in 1.0.0. In the old jQuery version, all control methods only worked on the last clock created. Now each instance is completely independent!
+        </div>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 6: 12-Hour Clock with AM/PM</h4>
+        <p>Display time in 12-hour format with AM/PM indicator:</p>
+        <div class="code-tabs">
+          <button class="code-tab active" onclick="switchTab(this, 'ex6-js')">JavaScript</button>
+          <button class="code-tab" onclick="switchTab(this, 'ex6-ts')">TypeScript</button>
+        </div>
+
+        <div id="ex6-js" class="code-content active">
+          <pre><code class="language-javascript">const clock12h = createClock(
+  document.getElementById('clock12h'),
+  undefined,  // Uses system time
+  { use12Hour: true }
+);
+
+// Display examples:
+// "02:30:45 PM" for 14:30:45
+// "12:00:00 AM" for midnight
+// "12:00:00 PM" for noon</code></pre>
+        </div>
+
+        <div id="ex6-ts" class="code-content">
+          <pre><code class="language-typescript">const clock12h: ClockInstance = createClock(
+  document.getElementById('clock12h')!,
+  undefined,  // Uses system time
+  { use12Hour: true }
+);
+
+// Works with all other options:
+const clock12hWithCenti: ClockInstance = createClock(
+  document.getElementById('clock12h-centi')!,
+  undefined,
+  {
+    use12Hour: true,
+    showCenti: true
+  }
+);
+// Display: "02:30:45:50 PM"</code></pre>
+        </div>
+
+        <div class="note">
+          <strong>Note:</strong> The 12-hour format automatically converts 24-hour time from the system clock or initial time string. 00:00 becomes 12:00 AM, 12:00 becomes 12:00 PM, 13:30 becomes 01:30 PM, etc.
+        </div>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 7: Multiple Timezone Dashboard</h4>
+        <p>Display times from different timezones - choose between DST-aware (recommended) or static offset:</p>
+        <div class="code-tabs">
+          <button class="code-tab active" onclick="switchTab(this, 'ex7-dst')">DST-Aware (Recommended)</button>
+          <button class="code-tab" onclick="switchTab(this, 'ex7-static')">Static Offset</button>
+        </div>
+
+        <div id="ex7-dst" class="code-content active">
+          <pre><code class="language-javascript">// Using IANA timezone names (DST-aware)
+// New York - automatically adjusts for DST
+const nyClock = createClock(
+  document.getElementById('ny-time'),
+  undefined,
+  { timezone: 'America/New_York' }
+);
+
+// London - automatically adjusts for BST
+const londonClock = createClock(
+  document.getElementById('london-time'),
+  undefined,
+  { timezone: 'Europe/London' }
+);
+
+// Tokyo - no DST, but still works
+const tokyoClock = createClock(
+  document.getElementById('tokyo-time'),
+  undefined,
+  { timezone: 'Asia/Tokyo' }
+);
+
+// Sydney - Southern Hemisphere DST
+const sydneyClock = createClock(
+  document.getElementById('sydney-time'),
+  undefined,
+  { timezone: 'Australia/Sydney' }
+);
+
+// Combine with 12-hour format
+const ny12hClock = createClock(
+  document.getElementById('ny-12h'),
+  undefined,
+  {
+    timezone: 'America/New_York',
+    use12Hour: true
+  }
+);</code></pre>
+        </div>
+
+        <div id="ex7-static" class="code-content">
+          <pre><code class="language-javascript">// Using static offset (does NOT handle DST)
+// New York (EST): UTC-5 - stays at -5 even during EDT
+const nyClock = createClock(
+  document.getElementById('ny-time'),
+  undefined,
+  { timezoneOffset: -5 }
+);
+
+// London (GMT): UTC+0
+const londonClock = createClock(
+  document.getElementById('london-time'),
+  undefined,
+  { timezoneOffset: 0 }
+);
+
+// Tokyo (JST): UTC+9
+const tokyoClock = createClock(
+  document.getElementById('tokyo-time'),
+  undefined,
+  { timezoneOffset: 9 }
+);
+
+// Mumbai (IST): UTC+5:30
+const mumbaiClock = createClock(
+  document.getElementById('mumbai-time'),
+  undefined,
+  { timezoneOffset: 5.5 }
+);</code></pre>
+        </div>
+
+        <div class="tip">
+          <strong>Tip:</strong> Common IANA timezone names include: <code>America/New_York</code>, <code>America/Los_Angeles</code>, <code>Europe/London</code>, <code>Europe/Paris</code>, <code>Asia/Tokyo</code>, <code>Asia/Shanghai</code>, <code>Australia/Sydney</code>, <code>Pacific/Auckland</code>. See the <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank">full list of IANA timezones</a>.
+        </div>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 8: Pomodoro Timer</h4>
+        <p>A practical example - Pomodoro technique timer:</p>
+        <pre><code class="language-javascript">let pomodoroCount = 0;
+
+const pomodoro = createClock(
+  document.getElementById('pomodoro'),
+  '00:25:00',
+  {
+    countdown: true,
+    callback: () => {
+      pomodoroCount++;
+      alert(`Pomodoro ${pomodoroCount} completed! Take a 5-minute break.`);
+
+      // Reset for next pomodoro
+      pomodoro.destroy();
+      pomodoro = createClock(
+        document.getElementById('pomodoro'),
+        '00:25:00',
+        {
+          countdown: true,
+          callback: () => alert('Next pomodoro done!')
+        }
+      );
+    }
+  }
+);</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 8: Kitchen Timer with Minutes Only</h4>
+        <p>Hide hours for a simple minute:second display:</p>
+        <pre><code class="language-javascript">const kitchenTimer = createClock(
+  document.getElementById('kitchen'),
+  '00:03:00',
+  {
+    countdown: true,
+    showHour: false,  // Hides hours
+    callback: () => {
+      document.getElementById('kitchen').style.background = '#ffebee';
+      alert('Dinner is ready!');
+    }
+  }
+);
+
+// Display: "03:00" instead of "00:03:00"</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 9: Stopwatch with Lap Times</h4>
+        <p>Create a simple stopwatch with lap functionality:</p>
+        <pre><code class="language-javascript">const stopwatch = createClock(
+  document.getElementById('stopwatch'),
+  '00:00:00',
+  { showCenti: true }
+);
+
+const laps = [];
+
+function recordLap() {
+  const lapTime = stopwatch.getTime();
+  laps.push(lapTime);
+  console.log(`Lap ${laps.length}: ${lapTime}`);
+}
+
+function resetStopwatch() {
+  stopwatch.reset();  // Uses the new reset() method!
+  laps.length = 0;
+}</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 10: Reusable Countdown with reset()</h4>
+        <p>Create a countdown that can be easily restarted without recreating:</p>
+        <pre><code class="language-javascript">const countdown = createClock(
+  document.getElementById('countdown'),
+  '00:05:00',
+  {
+    countdown: true,
+    callback: () => {
+      alert('Time is up!');
+    }
+  }
+);
+
+// User can pause/resume
+countdown.stopClock();
+countdown.startClock();
+
+// Reset to original time and restart - no need to destroy/recreate!
+countdown.reset();
+
+// This is much cleaner than the old way:
+// countdown.destroy();
+// countdown = createClock(element, '00:05:00', {...});</code></pre>
+
+        <div class="tip">
+          <strong>Tip:</strong> The <code>reset()</code> method is perfect for countdown timers that users may want to restart. It resets to the initial time and automatically starts running again.
+        </div>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 11: Dynamic Time with setTime()</h4>
+        <p>Change the displayed time dynamically without destroying the clock:</p>
+        <pre><code class="language-javascript">const clock = createClock(
+  document.getElementById('clock'),
+  '10:00:00'
+);
+
+// Later, change to a different time
+clock.setTime('15:30:00');
+
+// Works with centiseconds too
+const precision = createClock(
+  document.getElementById('precision'),
+  '00:00:00:00',
+  { showCenti: true }
+);
+
+clock.setTime('01:23:45:67');
+
+// Perfect for setting a countdown time from user input
+const userInput = document.getElementById('time-input').value;  // e.g., "00:10:00"
+countdown.setTime(userInput);</code></pre>
+
+        <div class="note">
+          <strong>Note:</strong> <code>setTime()</code> validates the time string and throws an error if invalid. Wrap in try-catch for user input.
+        </div>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 12: Pomodoro Timer with reset()</h4>
+        <p>A practical Pomodoro timer using the new <code>reset()</code> method:</p>
+        <pre><code class="language-javascript">let pomodoroCount = 0;
+const POMODORO_TIME = '00:25:00';
+const BREAK_TIME = '00:05:00';
+let isBreak = false;
+
+const pomodoro = createClock(
+  document.getElementById('pomodoro'),
+  POMODORO_TIME,
+  {
+    countdown: true,
+    callback: () => {
+      if (!isBreak) {
+        pomodoroCount++;
+        alert(`Pomodoro ${pomodoroCount} completed! Take a 5-minute break.`);
+        isBreak = true;
+        pomodoro.setTime(BREAK_TIME);
+        pomodoro.startClock();
+      } else {
+        alert('Break over! Starting next pomodoro.');
+        isBreak = false;
+        pomodoro.setTime(POMODORO_TIME);
+        pomodoro.startClock();
+      }
+    }
+  }
+);
+
+// Skip break button - just reset and continue
+function skipBreak() {
+  isBreak = false;
+  pomodoro.setTime(POMODORO_TIME);
+}
+
+// Reset current pomodoro
+function resetPomodoro() {
+  pomodoro.reset();  // Easy reset to initial time!
+}</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 13: Stopwatch</h4>
+        <p>Create a stopwatch that counts up from 00:00:00:</p>
+        <pre><code class="language-javascript">const stopwatch = createClock(
+  document.getElementById('stopwatch'),
+  undefined,
+  { stopwatch: true }
+);
+
+// Display starts at "00:00:00" and counts up
+// Stopwatch runs indefinitely (doesn't stop at midnight)
+
+// Control like any other clock
+stopwatch.stopClock();   // Pause
+stopwatch.startClock();  // Resume
+stopwatch.toggleClock(); // Toggle
+
+// Reset back to 00:00:00
+stopwatch.reset();</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 14: Stopwatch with Lap Times</h4>
+        <p>Record lap times during a stopwatch run:</p>
+        <pre><code class="language-javascript">const stopwatch = createClock(
+  document.getElementById('stopwatch'),
+  undefined,
+  {
+    stopwatch: true,
+    lap: true,           // Enable lap mode
+    lapWord: 'Split'     // Custom word (default: "Split" in splits mode, otherwise "Lap")
+  }
+);
+
+// Record a lap - returns the lap time string
+const lap1 = stopwatch.lap();  // "Split 1: 00:00:15"
+const lap2 = stopwatch.lap();  // "Split 2: 00:00:32"
+const lap3 = stopwatch.lap();  // "Split 3: 00:00:45"
+
+// Get all laps as an array
+const allLaps = stopwatch.getLaps();
+// ["Split 1: 00:00:15", "Split 2: 00:00:32", "Split 3: 00:00:45"]
+
+// Clear laps without stopping the stopwatch
+stopwatch.clearLaps();
+
+// Reset also clears laps
+stopwatch.reset();</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 15: Stopwatch with Centiseconds</h4>
+        <p>High-precision stopwatch for accurate timing:</p>
+        <pre><code class="language-javascript">const precisionStopwatch = createClock(
+  document.getElementById('precision-stopwatch'),
+  undefined,
+  {
+    stopwatch: true,
+    showCenti: true   // Show centiseconds
+  }
+);
+
+// Display: "00:00:15:23" (hours:minutes:seconds:centiseconds)</code></pre>
+      </div>
+
+      <div class="example-box">
+        <h4>Example 16: Race Timer with Custom Lap Word</h4>
+        <p>Customize the lap word for different use cases:</p>
+        <pre><code class="language-javascript">// No word at all (just number and time)
+const timer1 = createClock(
+  document.getElementById('timer1'),
+  undefined,
+  { stopwatch: true, lap: true, lapWord: '' }
+);
+// Lap: "1: 00:01:23"
+
+// Custom word for different sports
+const raceTimer = createClock(
+  document.getElementById('race'),
+  undefined,
+  { stopwatch: true, lap: true, lapWord: 'Checkpoint' }
+);
+// Lap: "Checkpoint 1: 00:05:30"</code></pre>
+      </div>
+    </div>
+
+    <div class="section" id="migration">
+      <h2>Migration Guide (v0.8 to v1.0.0)</h2>
+
+      <h3>Breaking Changes</h3>
+      <ul>
+        <li><strong>No jQuery dependency:</strong> The new version is vanilla JavaScript</li>
+        <li><strong>New import style:</strong> Use ES modules instead of jQuery plugin syntax</li>
+        <li><strong>Different initialization:</strong> Function-based API instead of jQuery chain</li>
+      </ul>
+
+      <h3>Old Way (v0.8 - jQuery)</h3>
+      <pre><code class="language-javascript">// Old jQuery syntax
+$('#clock').jsclock();
+$('#clock').jsclock('10:30:45');
+$('#clock').jsclock('00:05:00', { countdown: true });
+
+// Control methods (BROKEN for multiple clocks)
+$.fn.jsclock.stopClock();
+$.fn.jsclock.getTime();</code></pre>
+
+      <h3>New Way (1.0.0 - JavaScript/TypeScript)</h3>
+
+      <div class="code-tabs">
+        <button class="code-tab active" onclick="switchTab(this, 'js-new')">JavaScript</button>
+        <button class="code-tab" onclick="switchTab(this, 'ts-new')">TypeScript</button>
+      </div>
+
+      <div id="js-new" class="code-content active">
+        <pre><code class="language-javascript">// New ES module syntax
+import { createClock } from 'new-js-clock';
+
+const clock = createClock(document.getElementById('clock'));
+const clock2 = createClock(document.getElementById('clock2'), '10:30:45');
+const timer = createClock(
+  document.getElementById('timer'),
+  '00:05:00',
+  { countdown: true }
+);
+
+// Control methods (WORKS correctly for each instance!)
+clock.stopClock();
+clock.getTime();
+timer.startClock();</code></pre>
+      </div>
+
+      <div id="ts-new" class="code-content">
+        <pre><code class="language-typescript">// New ES module syntax with TypeScript
+import { createClock, ClockOptions, ClockInstance } from 'new-js-clock';
+
+// Type-safe clock instances
+const clock: ClockInstance = createClock(
+  document.getElementById('clock')!
+);
+
+const clock2 = createClock(
+  document.getElementById('clock2')!,
+  '10:30:45'
+);
+
+// Typed options
+const timerOptions: ClockOptions = {
+  countdown: true,
+  callback: () => console.log('Time is up!')
+};
+const timer: ClockInstance = createClock(
+  document.getElementById('timer')!,
+  '00:05:00',
+  timerOptions
+);
+
+// All methods are type-safe
+clock.stopClock();
+const currentTime: string = clock.getTime();
+const isRunning: boolean = timer.isRunning();</code></pre>
+      </div>
+
+      <div class="tip">
+        <strong>Benefits of upgrading:</strong>
+        <ul>
+          <li>Multiple clocks work correctly and independently</li>
+          <li>TypeScript support with full type safety</li>
+          <li>No jQuery dependency (smaller bundle size)</li>
+          <li>Modern ES modules</li>
+          <li>Better performance</li>
+          <li>162 deterministic Jest tests (99.74% lines, 99.01% statements, 100% functions, and 98.32% branch coverage)</li>
+          <li>Dockerized Selenium Grid E2E browser tests using <code>selenium/standalone-all-browsers</code> on port <code>4444</code>, running headless Chrome/Firefox/Edge for end-to-end behavior (including extended background-tab visibility scenarios)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="time-format">
+      <h2>Time Format Reference</h2>
+
+      <h3>Valid Time Formats</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Format</th>
+            <th>Example</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>HH:MM:SS</code></td>
+            <td>"14:30:45"</td>
+            <td>Standard format (hours, minutes, seconds)</td>
+          </tr>
+          <tr>
+            <td><code>HH:MM:SS:CC</code></td>
+            <td>"14:30:45:50"</td>
+            <td>With centiseconds (hundredths of a second)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>Format Rules:</h4>
+      <ul>
+        <li>Hours: 00-23 (24-hour format)</li>
+        <li>Minutes: 00-59</li>
+        <li>Seconds: 00-59</li>
+        <li>Centiseconds: 00-99 (optional)</li>
+        <li>Leading zeros are required (use "05" not "5")</li>
+        <li>All components must be two digits</li>
+      </ul>
+
+      <div class="note">
+        <strong>Note:</strong> When <code>showCenti</code> is enabled but the initial time doesn't include centiseconds, they default to "00".
+      </div>
+    </div>
+
+    <div class="section" id="errors">
+      <h2>Error Handling</h2>
+
+      <p>The library validates inputs and throws descriptive errors for invalid configurations. The caller is responsible for displaying error messages to users.</p>
+
+      <pre><code class="language-javascript">// TypeError: "Invalid countdown option: must be a boolean"
+createClock(el, '10:30:45', { countdown: 'yes' });
+
+// TypeError: "Invalid element: must be an HTMLElement"
+createClock(undefined);
+
+// TypeError: "Invalid options: must be an object"
+createClock(el, undefined, 123);
+createClock(el, undefined, []);
+
+// Error: "Initial time required for countdown mode"
+createClock(el, undefined, { countdown: true });
+
+// Error: "Invalid time string format: must be HH:MM:SS or HH:MM:SS:CC with leading zeros"
+createClock(el, '25:00:00');  // Hour > 23
+createClock(el, '10:70:00');  // Minute > 59
+createClock(el, '10:30');     // Missing seconds
+
+// RangeError: "Invalid timezoneOffset: must be between -12 and +14"
+createClock(el, undefined, { timezoneOffset: -13 });  // Too negative
+createClock(el, undefined, { timezoneOffset: 15 });   // Too positive
+
+// TypeError: "Invalid timezoneOffset option: must be a number"
+createClock(el, undefined, { timezoneOffset: 'EST' }); // Wrong type
+
+// RangeError: "Invalid timezone: "Invalid/Zone" is not a valid IANA timezone name"
+createClock(el, undefined, { timezone: 'Invalid/Zone' });
+
+// Error: "Cannot use both timezone and timezoneOffset options; choose one"
+createClock(el, undefined, { timezone: 'America/New_York', timezoneOffset: -5 });</code></pre>
+
+      <p>Always wrap clock creation in try-catch for production use:</p>
+
+      <h4>JavaScript</h4>
+      <pre><code class="language-javascript">try {
+  const clock = createClock(element, timeString, options);
+} catch (error) {
+  // Display error to user (caller decides how)
+  element.textContent = error.message;
+  console.error('Failed to create clock:', error.message);
+}</code></pre>
+
+      <h4>TypeScript</h4>
+      <pre><code class="language-typescript">try {
+  const clock: ClockInstance = createClock(
+    document.getElementById('clock')!,
+    '10:30:45'
+  );
+} catch (error: unknown) {
+  if (error instanceof Error) {
+    // Display error to user (caller decides how)
+    element.textContent = error.message;
+    console.error('Failed to create clock:', error.message);
+  }
+}</code></pre>
+
+      <div class="note">
+        <strong>Note:</strong> Error types follow JavaScript conventions: <code>TypeError</code> for incorrect types, <code>RangeError</code> for out-of-range values, and <code>Error</code> for general validation failures.
+      </div>
+    </div>
+
+    <div class="section" id="browser-support">
+      <h2>Browser Support</h2>
+
+      <p>New JS Clock 1.0.0 supports all modern browsers with native ES2020 support:</p>
+      <ul>
+        <li>Chrome 80+</li>
+        <li>Firefox 79+</li>
+        <li>Safari 14+</li>
+        <li>Edge 80+</li>
+      </ul>
+
+      <p>Requires ES2020+ support. For older browsers, use a transpiler like Babel.</p>
+
+      <h3>Test Coverage</h3>
+      <p>The library has strong, behavior-focused test quality metrics:</p>
+      <ul>
+        <li><strong>99.74%</strong> line coverage</li>
+        <li><strong>99.01%</strong> statement coverage</li>
+        <li><strong>98.32%</strong> branch coverage</li>
+        <li><strong>100%</strong> function coverage</li>
+        <li><strong>162</strong> passing deterministic Jest tests</li>
+        <li>Dockerized Selenium Grid E2E browser tests using <code>selenium/standalone-all-browsers</code> on port <code>4444</code>, running headless Chrome/Firefox/Edge for end-to-end runtime behavior (including extended background-tab visibility scenarios)</li>
+      </ul>
+    </div>
+
+    <div class="section" id="bundlers">
+      <h2>Bundler Configuration</h2>
+
+      <p>This library ships both ESM and CommonJS builds via package exports. Most bundlers work out of the box.</p>
+
+      <h3>Vite</h3>
+      <p>Works out of the box - no configuration needed.</p>
+
+      <h3>webpack</h3>
+      <pre><code class="language-javascript">// webpack.config.js
+module.exports = {
+  resolve: {
+    extensions: ['.js', '.ts'],
+    conditionNames: ['import', 'require', 'default']
+  }
+};</code></pre>
+
+      <h3>esbuild</h3>
+      <pre><code class="language-javascript">// esbuild.config.js
+esbuild.build({
+  bundle: true,
+  format: 'esm',
+  mainFields: ['module', 'main']
+});</code></pre>
+      <pre><code class="language-javascript">// For CommonJS output
+esbuild.build({
+  bundle: true,
+  format: 'cjs',
+  mainFields: ['main', 'module']
+});</code></pre>
+
+      <h3>TypeScript</h3>
+      <p>The library includes TypeScript declarations. For ESM projects, ensure your <code>tsconfig.json</code> uses a compatible <code>moduleResolution</code>:</p>
+      <pre><code class="language-json">{
+  "compilerOptions": {
+    "moduleResolution": "node"  // or "node16", "nodenext", or "bundler"
+  }
+}</code></pre>
+
+      <div class="note">
+        <strong>Note:</strong> If you use <code>moduleResolution: "bundler"</code> in your project, the library will still work correctly since it's compiled with <code>moduleResolution: "node"</code> for broad compatibility. CommonJS projects can use <code>require('new-js-clock')</code>.
+      </div>
+    </div>
+
+    <footer>
+      <p>New JS Clock 1.0.0 - JavaScript/TypeScript Edition</p>
+      <p>Copyright (c) <a href="https://www.tcpweb.com.br/" aria-label="The author's website">tcpweb</a> - Licensed under MIT</p>
+      <p><a href="/new-js-clock/" style="color: #00d4ff;">View Live Demo &rarr;</a></p>
+    </footer>
+  </div>
+  <a href="https://github.com/thiago-cavalcanti/new-js-clock" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewBox="0 0 250 250" style="fill:#1a2332; color:#0f8; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a>
+  <script>
+    hljs.highlightAll();
+
+    function switchTab(button, targetId) {
+      // Get parent container
+      const container = button.closest('.code-tabs').parentElement;
+
+      // Remove active class from all tabs in this container
+      container.querySelectorAll('.code-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      // Add active class to clicked tab
+      button.classList.add('active');
+
+      // Hide all code contents in this container
+      container.querySelectorAll('.code-content').forEach(content => {
+        content.classList.remove('active');
+      });
+
+      // Show target content
+      document.getElementById(targetId).classList.add('active');
+    }
+  </script>
+</body>
+</html>
