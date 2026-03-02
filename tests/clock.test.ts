@@ -58,7 +58,8 @@ function formatIanaTime(
   const second = parts.find((part) => part.type === 'second')?.value ?? '00';
   const dayPeriod = parts.find((part) => part.type === 'dayPeriod')?.value;
 
-  let output = `${hour}:${minute}:${second}`;
+  const normalizedHour = use12Hour ? hour : pad2(parseInt(hour, 10) % 24);
+  let output = `${normalizedHour}:${minute}:${second}`;
 
   if (showCenti) {
     output += `:${pad2(Math.floor(date.getMilliseconds() / 10))}`;
@@ -96,6 +97,7 @@ describe('New JS Clock', () => {
     jest.restoreAllMocks();
     setDocumentHidden(false);
     jest.setSystemTime(DEFAULT_SYSTEM_TIME);
+    _resetGlobalStateForTesting();
     document.body.removeChild(container);
     jest.clearAllTimers();
   });

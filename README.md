@@ -11,7 +11,7 @@ A modern TypeScript rewrite of the classic [JS-Clock](https://www.tcpweb.com.br/
 - **📦 Zero Dependencies**: Pure vanilla JavaScript, no jQuery required
 - **🐛 Bug Fixes**: Multi-instance support works correctly (main issue in v0.8)
 - **⚡ Modern API**: Clean, intuitive API with proper instance methods
-- **🧪 Fully Tested**: 162 deterministic Jest tests with 99.74% lines/99.01% statements/100% functions and 98.32% branch coverage
+- **🧪 Fully Tested**: 162 deterministic Jest tests with 99.74% lines/99.02% statements/100% functions and 98.32% branch coverage
 - **🐳 Dockerized E2E Grid**: Selenium Grid via `selenium/standalone-all-browsers` on port `4444`, running headless Chrome/Firefox/Edge locally and in CI (`pnpm run e2e:docker`)
 - **📱 ES Modules**: ES Module imports with tree-shaking support
 - **🌍 DST-Aware Timezones**: IANA timezone support with automatic daylight saving time handling
@@ -99,7 +99,7 @@ pnpm lint
 pnpm run lint:fix
 ```
 
-**Test Quality Snapshot:** 162 passing Jest tests with **99.74% line coverage**, **99.01% statement coverage**, **98.32% branch coverage**, and **100% function coverage**.
+**Test Quality Snapshot:** 162 passing Jest tests with **99.74% line coverage**, **99.02% statement coverage**, **98.32% branch coverage**, and **100% function coverage**.
 **E2E Snapshot:** Dockerized Selenium Grid using `selenium/standalone-all-browsers` on port `4444`, executing headless browser runs for Chrome, Firefox, and Edge via `pnpm run e2e:docker`.
 
 ## 📖 Usage

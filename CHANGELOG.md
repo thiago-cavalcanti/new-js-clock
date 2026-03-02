@@ -26,7 +26,7 @@ First public release of New JS Clock – a complete modern rewrite of the origin
 - Modern ES module export (`import { createClock } from 'new-js-clock'`)
 - Detailed API reference, migration guide, and many practical examples (Pomodoro, stopwatch, kitchen timer, multi-timezone dashboard, etc.)
 - Browser support: all modern browsers (Chrome 60+, Firefox 55+, Safari 12+, Edge 79+)
-- Comprehensive deterministic Jest suite with 162 passing tests, 99.74% lines/99.01% statements/100% functions coverage, and 98.32% branch coverage
+- Comprehensive deterministic Jest suite with 162 passing tests, 99.74% lines/99.02% statements/100% functions coverage, and 98.32% branch coverage
 - Dockerized Selenium Grid E2E browser suite using `selenium/standalone-all-browsers` on port `4444`, running headless Chrome/Firefox/Edge for end-to-end runtime behavior (including extended background-tab visibility scenarios) locally and in CI
 - ESLint integration with TypeScript support (`pnpm lint`, `pnpm run lint:fix`)
 - TypeScript type checking as part of build process (`pnpm run build`)

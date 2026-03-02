@@ -232,8 +232,9 @@ export function createClock(element, initialTime, options = {}) {
                 const part = parts.find(p => p.type === type);
                 return part ? parseInt(part.value, 10) : 0;
             };
+            const normalizedHour = getPart('hour') % 24;
             time = {
-                hours: getPart('hour'),
+                hours: normalizedHour,
                 minutes: getPart('minute'),
                 seconds: getPart('second'),
                 centiseconds: showCenti ? Math.floor(now.getMilliseconds() / 10) : 0
