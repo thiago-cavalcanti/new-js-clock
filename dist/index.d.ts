@@ -43,7 +43,10 @@ export interface ClockOptions {
 export interface ClockInstance {
     /** Get the current time string */
     getTime: () => string;
-    /** Set a new time for the clock */
+    /**
+     * Set a new time for the clock. Only meaningful for custom-time, countdown and stopwatch clocks:
+     * a system clock (created without an initial time) resyncs to the system time on its next tick.
+     */
     setTime: (timeString: string) => void;
     /** Stop the clock */
     stopClock: () => void;

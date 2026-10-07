@@ -1,5 +1,5 @@
 export interface TickerClock {
-    _tick: (now: number, timestamp?: number) => void;
+    _tick: (now: number) => void;
     _requestsAnimationFrame: () => boolean;
     _isSystemDriven: () => boolean;
     _getTimeoutDelay: (now: number) => number;

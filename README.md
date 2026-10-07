@@ -2,7 +2,7 @@
 
 A modern TypeScript rewrite of the classic [JS-Clock](https://www.tcpweb.com.br/JS-Clock/) library, featuring full type safety, no dependencies, and proper multi-instance support.
 
-![Test Coverage](https://img.shields.io/badge/coverage-99.74%25%20lines%20%7C%2098.32%25%20branches-brightgreen)
+![Test Coverage](https://img.shields.io/badge/coverage-100%25%20lines%20%7C%2098.58%25%20branches-brightgreen)
 
 Check out this project's demo [here](https://www.tcpweb.com.br/new-js-clock/).
 
@@ -13,7 +13,7 @@ Check out this project's demo [here](https://www.tcpweb.com.br/new-js-clock/).
 - **📦 Zero Dependencies**: Pure vanilla JavaScript, no jQuery required
 - **🐛 Bug Fixes**: Multi-instance support works correctly (main issue in v0.8)
 - **⚡ Modern API**: Clean, intuitive API with proper instance methods
-- **🧪 Fully Tested**: 162 deterministic Jest tests with 99.74% lines/99.02% statements/100% functions and 98.32% branch coverage
+- **🧪 Fully Tested**: 180 deterministic Jest tests with 100% lines/99.24% statements/100% functions and 98.58% branch coverage
 - **🐳 Dockerized E2E Grid**: Selenium Grid via `selenium/standalone-all-browsers` on port `4444`, running headless Chrome/Firefox/Edge locally and in CI (`pnpm run e2e:docker`)
 - **📱 ES Modules**: ES Module imports with tree-shaking support
 - **🌍 DST-Aware Timezones**: IANA timezone support with automatic daylight saving time handling
@@ -101,7 +101,7 @@ pnpm lint
 pnpm run lint:fix
 ```
 
-**Test Quality Snapshot:** 162 passing Jest tests with **99.74% line coverage**, **99.02% statement coverage**, **98.32% branch coverage**, and **100% function coverage**.
+**Test Quality Snapshot:** 180 passing Jest tests with **100% line coverage**, **99.24% statement coverage**, **98.58% branch coverage**, and **100% function coverage**.
 **E2E Snapshot:** Dockerized Selenium Grid using `selenium/standalone-all-browsers` on port `4444`, executing headless browser runs for Chrome, Firefox, and Edge via `pnpm run e2e:docker`.
 
 ## 📖 Usage
@@ -271,9 +271,9 @@ const stopwatch = createClock(
   }
 );
 
-// Record a lap
-const lap1 = stopwatch.lap();  // "Split 1: 00:00:15"
-const lap2 = stopwatch.lap();  // "Split 2: 00:00:32"
+// Record a lap (default lapMode "both": lap time, then split time in parentheses)
+const lap1 = stopwatch.lap();  // "Split 1: 00:00:15 (00:00:15)"
+const lap2 = stopwatch.lap();  // "Split 2: 00:00:17 (00:00:32)"
 
 // Get all laps
 const laps = stopwatch.getLaps();
@@ -322,7 +322,7 @@ Creates a new clock instance.
 | `startClock()` | `void` | Start/resume the clock |
 | `toggleClock()` | `void` | Toggle between running and stopped |
 | `isRunning()` | `boolean` | Check if clock is currently running |
-| `setTime(timeString)` | `void` | Set a new time without destroying the instance |
+| `setTime(timeString)` | `void` | Set a new time without destroying the instance (custom-time, countdown and stopwatch clocks; a system clock resyncs to the system time on its next tick) |
 | `reset()` | `void` | Reset to initial time and restart (great for countdowns!) |
 | `lap()` | `string` | Record a lap/split time (only in lap mode) |
 | `getLaps()` | `string[]` | Get all recorded lap/split times (only in lap mode) |

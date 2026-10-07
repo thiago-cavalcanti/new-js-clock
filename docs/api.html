@@ -803,7 +803,7 @@ pnpm lint</code></pre>
           <tr>
             <td><code>setTime(timeString)</code></td>
             <td><span class="badge badge-type">void</span></td>
-            <td>Sets a new time for the clock without destroying the instance. Accepts "HH:MM:SS" or "HH:MM:SS:CC" format.</td>
+            <td>Sets a new time for the clock without destroying the instance. Accepts "HH:MM:SS" or "HH:MM:SS:CC" format. Applies to custom-time, countdown and stopwatch clocks; a system clock (no initial time) resyncs to the system time on its next tick.</td>
           </tr>
           <tr>
             <td><code>startClock()</code></td>
@@ -1346,14 +1346,14 @@ stopwatch.reset();</code></pre>
   }
 );
 
-// Record a lap - returns the lap time string
-const lap1 = stopwatch.lap();  // "Split 1: 00:00:15"
-const lap2 = stopwatch.lap();  // "Split 2: 00:00:32"
-const lap3 = stopwatch.lap();  // "Split 3: 00:00:45"
+// Record a lap - returns the lap string (default lapMode "both": lap time, then split time)
+const lap1 = stopwatch.lap();  // "Split 1: 00:00:15 (00:00:15)"
+const lap2 = stopwatch.lap();  // "Split 2: 00:00:17 (00:00:32)"
+const lap3 = stopwatch.lap();  // "Split 3: 00:00:13 (00:00:45)"
 
 // Get all laps as an array
 const allLaps = stopwatch.getLaps();
-// ["Split 1: 00:00:15", "Split 2: 00:00:32", "Split 3: 00:00:45"]
+// ["Split 1: 00:00:15 (00:00:15)", "Split 2: 00:00:17 (00:00:32)", "Split 3: 00:00:13 (00:00:45)"]
 
 // Clear laps without stopping the stopwatch
 stopwatch.clearLaps();
@@ -1482,7 +1482,7 @@ const isRunning: boolean = timer.isRunning();</code></pre>
           <li>No jQuery dependency (smaller bundle size)</li>
           <li>Modern ES modules</li>
           <li>Better performance</li>
-          <li>162 deterministic Jest tests (99.74% lines, 99.02% statements, 100% functions, and 98.32% branch coverage)</li>
+          <li>180 deterministic Jest tests (100% lines, 99.24% statements, 100% functions, and 98.58% branch coverage)</li>
           <li>Dockerized Selenium Grid E2E browser tests using <code>selenium/standalone-all-browsers</code> on port <code>4444</code>, running headless Chrome/Firefox/Edge for end-to-end behavior (including extended background-tab visibility scenarios)</li>
         </ul>
       </div>
@@ -1598,7 +1598,7 @@ createClock(el, undefined, { timezone: 'America/New_York', timezoneOffset: -5 })
     <div class="section" id="browser-support">
       <h2>Browser Support</h2>
 
-      <p>New JS Clock 1.0.0 supports all modern browsers with native ES2020 support:</p>
+      <p>New JS Clock 1.0.1 supports all modern browsers with native ES2020 support:</p>
       <ul>
         <li>Chrome 80+</li>
         <li>Firefox 79+</li>
@@ -1611,11 +1611,11 @@ createClock(el, undefined, { timezone: 'America/New_York', timezoneOffset: -5 })
       <h3>Test Coverage</h3>
       <p>The library has strong, behavior-focused test quality metrics:</p>
       <ul>
-        <li><strong>99.74%</strong> line coverage</li>
-        <li><strong>99.02%</strong> statement coverage</li>
-        <li><strong>98.32%</strong> branch coverage</li>
+        <li><strong>100%</strong> line coverage</li>
+        <li><strong>99.24%</strong> statement coverage</li>
+        <li><strong>98.58%</strong> branch coverage</li>
         <li><strong>100%</strong> function coverage</li>
-        <li><strong>162</strong> passing deterministic Jest tests</li>
+        <li><strong>180</strong> passing deterministic Jest tests</li>
         <li>Dockerized Selenium Grid E2E browser tests using <code>selenium/standalone-all-browsers</code> on port <code>4444</code>, running headless Chrome/Firefox/Edge for end-to-end runtime behavior (including extended background-tab visibility scenarios)</li>
       </ul>
     </div>
@@ -1665,7 +1665,7 @@ esbuild.build({
     </div>
 
     <footer>
-      <p>New JS Clock 1.0.0 - JavaScript/TypeScript Edition</p>
+      <p>New JS Clock 1.0.1 - JavaScript/TypeScript Edition</p>
       <p>Copyright (c) <a href="https://www.tcpweb.com.br/" aria-label="The author's website">tcpweb</a> - Licensed under MIT</p>
       <p><a href="/new-js-clock/" style="color: #00d4ff;">View Live Demo &rarr;</a></p>
     </footer>

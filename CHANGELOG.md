@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-10-07
+
+### Fixed
+- A countdown `callback` that throws no longer stops every clock on the page. The shared ticker now schedules its next tick before rethrowing the error (further errors from the same tick are rethrown asynchronously), and clocks created afterwards start normally.
+- Lap times (`lap()`, `getLapTimes()`, `LapRecord.preciseElapsedMs`, `bestLap()`, `worstLap()`) no longer include time spent paused with `stopClock()`.
+- `useAnimationFrame` clocks created while the page is already hidden now tick via the `setTimeout` fallback instead of waiting for the tab to become visible, so countdown callbacks fire on time in background tabs.
+- `useAnimationFrame` clocks no longer lag (by up to ~1s, including the countdown `callback`) after a pause/resume or a hidden/visible switch; each animation frame now syncs to the clock's time anchor.
+- `useAnimationFrame` clocks created after every animated clock was removed while the page was hidden now use `requestAnimationFrame` again, instead of silently staying on `setTimeout`.
+- Creating a `useAnimationFrame` clock from inside a countdown `callback` no longer starts a second scheduling loop that doubled the tick rate.
+- The display shows `00:00:00` before the countdown `callback` runs (previously a blocking callback such as `alert()` showed the last second).
+- Calling `destroy()` from inside the countdown `callback` now leaves the element empty instead of `00:00:00`.
+- Corrected the 1.0.0 browser support statement in this changelog (the output targets ES2020).
+
+### Changed
+- IANA `timezone` clocks create their `Intl.DateTimeFormat` once instead of on every tick.
+- The build banner shows the repository URL without the `git+` prefix.
+
+### Documentation
+- Fixed the lap example output in the README and API docs (the default `lapMode: "both"` includes the split time).
+- Documented that `setTime()` on a system clock (created without an initial time) is overwritten by the system time on the next tick.
+
 ## [1.0.0] - 2026-03-01
 
 First public release of New JS Clock – a complete modern rewrite of the original JS Clock jQuery plugin (v0.8).
@@ -25,7 +46,7 @@ First public release of New JS Clock – a complete modern rewrite of the origin
 - Error handling documentation and recommended try-catch pattern
 - Modern ES module export (`import { createClock } from 'new-js-clock'`)
 - Detailed API reference, migration guide, and many practical examples (Pomodoro, stopwatch, kitchen timer, multi-timezone dashboard, etc.)
-- Browser support: all modern browsers (Chrome 60+, Firefox 55+, Safari 12+, Edge 79+)
+- Browser support: all modern browsers with ES2020 support (Chrome 80+, Firefox 79+, Safari 14+, Edge 80+)
 - Comprehensive deterministic Jest suite with 162 passing tests, 99.74% lines/99.02% statements/100% functions coverage, and 98.32% branch coverage
 - Dockerized Selenium Grid E2E browser suite using `selenium/standalone-all-browsers` on port `4444`, running headless Chrome/Firefox/Edge for end-to-end runtime behavior (including extended background-tab visibility scenarios) locally and in CI
 - ESLint integration with TypeScript support (`pnpm lint`, `pnpm run lint:fix`)
@@ -70,4 +91,5 @@ First public release of New JS Clock – a complete modern rewrite of the origin
 - Performance issues when initializing many clocks separately (new version encourages one call per clock anyway)
 - Inaccurate handling of server-provided time (new version still requires network-delay compensation, but logic is cleaner)
 
+[1.0.1]: https://github.com/thiago-cavalcanti/new-js-clock/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/thiago-cavalcanti/new-js-clock/releases/tag/1.0.0

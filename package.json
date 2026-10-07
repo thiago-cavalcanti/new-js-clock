@@ -1,6 +1,6 @@
 {
   "name": "new-js-clock",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "packageManager": "pnpm@10.30.3",
   "description": "A modern TypeScript clock library with countdown support - jQuery-free rewrite of JS-Clock",
   "homepage": "https://www.tcpweb.com.br/new-js-clock/",

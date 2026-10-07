@@ -12,7 +12,7 @@ const banner = `/**
  * 
  * @author ${packageJson.author}
  * @license ${packageJson.license}
- * @repository ${packageJson.repository?.url || ''}
+ * @repository ${(packageJson.repository?.url || '').replace(/^git\+/, '')}
  */`;
 
 async function build() {

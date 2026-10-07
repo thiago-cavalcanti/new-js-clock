@@ -50,7 +50,10 @@ export interface ClockOptions {
 export interface ClockInstance {
   /** Get the current time string */
   getTime: () => string;
-  /** Set a new time for the clock */
+  /**
+   * Set a new time for the clock. Only meaningful for custom-time, countdown and stopwatch clocks:
+   * a system clock (created without an initial time) resyncs to the system time on its next tick.
+   */
   setTime: (timeString: string) => void;
   /** Stop the clock */
   stopClock: () => void;
@@ -290,17 +293,17 @@ export function createClock(
   let isStopped = false;
   let isDestroyed = false;
   let lapRecords: LapRecord[] = [];
-  let lastLapPerfTime: number = performance.now();
+
+  // High-resolution running time (performance.now()), excluding paused periods, for lap deltas
+  let runningPerfMs = 0;
+  let runSegmentPerfStart: number = performance.now();
+  let lastLapRunningPerfMs = 0;
   
   // Custom clock anchoring
   let customClockStartTimeMs: number = Date.now();
   let customClockElapsedMs: number = 0;
   let initialTimeMs: number = 0;
 
-  // Animation frame state for this specific clock
-  let lastTimestamp: number = 0;
-  let accumulatedTime: number = 0;
-  
   const useAnimationFrame = options.useAnimationFrame ?? false;
   const showCenti = options.showCenti ?? false;
   const showHour = options.showHour ?? true;
@@ -315,6 +318,15 @@ export function createClock(
   const timezoneOffset = options.timezoneOffset;
   const timezone = options.timezone;
   const isSystemDrivenClock = !isCountdown && !isStopwatch && !initialTime;
+  const timezoneFormatter = timezone !== undefined
+    ? new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
+    : undefined;
 
   // If countdown mode, require initial time
   if (isCountdown && !initialTime) {
@@ -343,6 +355,7 @@ export function createClock(
    * Updates the display with current time
    */
   function updateDisplay(): void {
+    if (isDestroyed) return;
     const timeString = formatTimeString(time, showCenti, showHour, showMinute, use12Hour);
     if (element.textContent !== timeString) {
       element.textContent = timeString;
@@ -356,16 +369,8 @@ export function createClock(
     const now = nowTime ? new Date(nowTime) : new Date();
     
     // Use IANA timezone (DST-aware)
-    if (timezone !== undefined) {
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      });
-      
-      const parts = formatter.formatToParts(now);
+    if (timezoneFormatter !== undefined) {
+      const parts = timezoneFormatter.formatToParts(now);
       const getPart = (type: string): number => {
         const part = parts.find(p => p.type === type);
         return part ? parseInt(part.value, 10) : 0;
@@ -473,6 +478,7 @@ export function createClock(
     customClockElapsedMs = initialTimeMs;
     customClockStartTimeMs = Date.now();
     setTimeToZero();
+    updateDisplay();
     if (invokeCallback && callback) {
       callback();
     }
@@ -484,47 +490,23 @@ export function createClock(
     }
 
     completeCountdown(invokeCallback);
-    updateDisplay();
     return true;
   }
 
   /**
    * Internal tick logic driven by the global ticker
    */
-  function _tick(now: number, timestamp?: number): void {
+  function _tick(now: number): void {
     if (isStopped || isDestroyed) return;
 
+    // Both the setTimeout and requestAnimationFrame paths derive the time from Date.now(),
+    // and updateDisplay() only touches the DOM when the rendered string changes
     if (isSystemDrivenClock) {
       syncWithSystemTime(now);
-      updateDisplay();
-      return;
-    }
-
-    if (useAnimationFrame && timestamp !== undefined) {
-      // rAF path - calculate delta time
-      if (lastTimestamp === 0) {
-        lastTimestamp = timestamp;
-      }
-      const delta = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-      accumulatedTime += delta;
-
-      const tickInterval = showCenti ? 10 : 1000;
-      let shouldUpdate = false;
-      while (accumulatedTime >= tickInterval) {
-        accumulatedTime -= tickInterval;
-        shouldUpdate = true;
-      }
-
-      if (shouldUpdate) {
-        syncCustomTimeAnchor(now);
-        updateDisplay();
-      }
     } else {
-      // setTimeout path
       syncCustomTimeAnchor(now);
-      updateDisplay();
     }
+    updateDisplay();
   }
 
   const internalInstance: InternalClockInstance = {
@@ -574,8 +556,11 @@ export function createClock(
    * Stops the clock
    */
   function stopClock(): void {
-    if (!isStopped && !isSystemDrivenClock) {
-      customClockElapsedMs += Date.now() - customClockStartTimeMs;
+    if (!isStopped) {
+      runningPerfMs += performance.now() - runSegmentPerfStart;
+      if (!isSystemDrivenClock) {
+        customClockElapsedMs += Date.now() - customClockStartTimeMs;
+      }
     }
     isStopped = true;
     removeClock(internalInstance);
@@ -588,6 +573,7 @@ export function createClock(
     if (isDestroyed || !isStopped) return;
     
     isStopped = false;
+    runSegmentPerfStart = performance.now();
     
     if (!isSystemDrivenClock) {
       customClockStartTimeMs = Date.now();
@@ -668,7 +654,9 @@ export function createClock(
       customClockElapsedMs = 0;
       customClockStartTimeMs = Date.now();
       lapRecords = [];
-      lastLapPerfTime = performance.now();
+      runningPerfMs = 0;
+      runSegmentPerfStart = performance.now();
+      lastLapRunningPerfMs = 0;
     } else if (initialTime) {
       time = parseTimeString(initialTime);
       initialTimeMs = time.hours * 3600000 + time.minutes * 60000 + time.seconds * 1000 + time.centiseconds * 10;
@@ -682,7 +670,10 @@ export function createClock(
       return;
     }
     
-    isStopped = false;
+    if (isStopped) {
+      isStopped = false;
+      runSegmentPerfStart = performance.now();
+    }
     updateDisplay();
     
     addClock(internalInstance);
@@ -695,9 +686,9 @@ export function createClock(
     if (isDestroyed) return '';
     assertLapModeEnabled();
 
-    const now = performance.now();
-    const preciseElapsedMs = now - lastLapPerfTime;
-    lastLapPerfTime = now;
+    const currentRunningPerfMs = getRunningPerfMs();
+    const preciseElapsedMs = currentRunningPerfMs - lastLapRunningPerfMs;
+    lastLapRunningPerfMs = currentRunningPerfMs;
 
     const splitTime = formatTimeString(time, showCenti, showHour, showMinute, use12Hour);
     const lapNumber = lapRecords.length + 1;
@@ -824,7 +815,14 @@ export function createClock(
     if (isDestroyed) return;
     assertLapModeEnabled();
     lapRecords = [];
-    lastLapPerfTime = performance.now();
+    lastLapRunningPerfMs = getRunningPerfMs();
+  }
+
+  /**
+   * Running time in milliseconds since the clock started (or was reset), excluding paused periods
+   */
+  function getRunningPerfMs(): number {
+    return isStopped ? runningPerfMs : runningPerfMs + (performance.now() - runSegmentPerfStart);
   }
 
   function assertLapModeEnabled(): void {
