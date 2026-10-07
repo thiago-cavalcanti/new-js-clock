@@ -1,5 +1,5 @@
 /**
- * new-js-clock v1.0.0
+ * new-js-clock v1.0.1
  * A modern TypeScript clock library with countdown support - jQuery-free rewrite of JS-Clock
  * 
  * @author tcpweb
@@ -37,7 +37,17 @@ module.exports = __toCommonJS(index_exports);
 var activeClocks = /* @__PURE__ */ new Set();
 var globalTimeoutId = null;
 var globalAnimationFrameId = null;
-var isGlobalPageVisible = true;
+function isPageVisible() {
+  return typeof document === "undefined" || !document.hidden;
+}
+function anyClockRequestsAnimationFrame() {
+  for (const clock of activeClocks) {
+    if (clock._requestsAnimationFrame()) {
+      return true;
+    }
+  }
+  return false;
+}
 function getGlobalTimeoutDelay(now) {
   let nextDelay = Infinity;
   for (const clock of activeClocks) {
@@ -52,32 +62,19 @@ function getGlobalTimeoutDelay(now) {
   return Math.max(nextDelay, 0);
 }
 function handleGlobalVisibilityChange() {
-  isGlobalPageVisible = !document.hidden;
-  if (!isGlobalPageVisible) {
-    if (globalAnimationFrameId !== null) {
-      window.cancelAnimationFrame(globalAnimationFrameId);
-      globalAnimationFrameId = null;
+  if (isPageVisible()) {
+    if (globalTimeoutId !== null) {
+      window.clearTimeout(globalTimeoutId);
+      globalTimeoutId = null;
     }
-    if (globalTimeoutId === null) {
-      globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(Date.now()));
-    }
-  } else {
-    window.clearTimeout(globalTimeoutId);
-    globalTimeoutId = null;
     const now = Date.now();
     for (const clock of activeClocks) {
       if (clock._isSystemDriven()) {
         clock._tick(now);
       }
     }
-    const requestsRaf = Array.from(activeClocks).some((c) => c._requestsAnimationFrame());
-    if (requestsRaf) {
-      window.cancelAnimationFrame(globalAnimationFrameId);
-      globalAnimationFrameId = window.requestAnimationFrame(globalTick);
-    } else {
-      globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(now));
-    }
   }
+  scheduleGlobalTick();
 }
 function ensureVisibilityListener() {
   document.addEventListener("visibilitychange", handleGlobalVisibilityChange);
@@ -97,15 +94,18 @@ function stopGlobalTicker() {
     globalAnimationFrameId = null;
   }
 }
-function startGlobalTicker() {
-  const requestsRaf = Array.from(activeClocks).some((c) => c._requestsAnimationFrame());
-  if (requestsRaf && isGlobalPageVisible) {
+function scheduleGlobalTick() {
+  if (activeClocks.size === 0) {
+    stopGlobalTicker();
+    return;
+  }
+  if (anyClockRequestsAnimationFrame() && isPageVisible()) {
     if (globalTimeoutId !== null) {
       window.clearTimeout(globalTimeoutId);
       globalTimeoutId = null;
     }
     if (globalAnimationFrameId === null) {
-      globalAnimationFrameId = window.requestAnimationFrame(globalTick);
+      globalAnimationFrameId = window.requestAnimationFrame(onAnimationFrame);
     }
   } else {
     if (globalAnimationFrameId !== null) {
@@ -113,24 +113,36 @@ function startGlobalTicker() {
       globalAnimationFrameId = null;
     }
     if (globalTimeoutId === null) {
-      globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(Date.now()));
+      globalTimeoutId = window.setTimeout(onTimeout, getGlobalTimeoutDelay(Date.now()));
     }
   }
 }
-function globalTick(timestamp) {
-  if (activeClocks.size === 0) {
-    stopGlobalTicker();
-    return;
-  }
+function onTimeout() {
+  globalTimeoutId = null;
+  globalTick();
+}
+function onAnimationFrame() {
+  globalAnimationFrameId = null;
+  globalTick();
+}
+function globalTick() {
   const now = Date.now();
-  const requestsRaf = Array.from(activeClocks).some((c) => c._requestsAnimationFrame());
-  for (const clock of activeClocks) {
-    clock._tick(now, timestamp);
+  const errors = [];
+  for (const clock of Array.from(activeClocks)) {
+    try {
+      clock._tick(now);
+    } catch (error) {
+      errors.push(error);
+    }
   }
-  if (requestsRaf && isGlobalPageVisible) {
-    globalAnimationFrameId = window.requestAnimationFrame(globalTick);
-  } else {
-    globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(now));
+  scheduleGlobalTick();
+  if (errors.length > 0) {
+    for (const error of errors.slice(1)) {
+      queueMicrotask(() => {
+        throw error;
+      });
+    }
+    throw errors[0];
   }
 }
 function addClock(clock) {
@@ -138,20 +150,14 @@ function addClock(clock) {
   if (clock._requestsAnimationFrame()) {
     ensureVisibilityListener();
   }
-  startGlobalTicker();
+  scheduleGlobalTick();
 }
 function removeClock(clock) {
   activeClocks.delete(clock);
-  if (activeClocks.size === 0) {
-    stopGlobalTicker();
-    detachVisibilityListener();
-    return;
-  }
-  const hasRafClock = Array.from(activeClocks).some((c) => c._requestsAnimationFrame());
-  if (!hasRafClock) {
+  if (!anyClockRequestsAnimationFrame()) {
     detachVisibilityListener();
   }
-  startGlobalTicker();
+  scheduleGlobalTick();
 }
 
 // src/index.ts
@@ -277,12 +283,12 @@ function createClock(element, initialTime, options = {}) {
   let isStopped = false;
   let isDestroyed = false;
   let lapRecords = [];
-  let lastLapPerfTime = performance.now();
+  let runningPerfMs = 0;
+  let runSegmentPerfStart = performance.now();
+  let lastLapRunningPerfMs = 0;
   let customClockStartTimeMs = Date.now();
   let customClockElapsedMs = 0;
   let initialTimeMs = 0;
-  let lastTimestamp = 0;
-  let accumulatedTime = 0;
   const useAnimationFrame = options.useAnimationFrame ?? false;
   const showCenti = options.showCenti ?? false;
   const showHour = options.showHour ?? true;
@@ -297,6 +303,13 @@ function createClock(element, initialTime, options = {}) {
   const timezoneOffset = options.timezoneOffset;
   const timezone = options.timezone;
   const isSystemDrivenClock = !isCountdown && !isStopwatch && !initialTime;
+  const timezoneFormatter = timezone !== void 0 ? new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }) : void 0;
   if (isCountdown && !initialTime) {
     throw new Error("Initial time required for countdown mode");
   }
@@ -314,6 +327,7 @@ function createClock(element, initialTime, options = {}) {
     initialTimeMs = 0;
   }
   function updateDisplay() {
+    if (isDestroyed) return;
     const timeString = formatTimeString(time, showCenti, showHour, showMinute, use12Hour);
     if (element.textContent !== timeString) {
       element.textContent = timeString;
@@ -321,15 +335,8 @@ function createClock(element, initialTime, options = {}) {
   }
   function syncWithSystemTime(nowTime) {
     const now = nowTime ? new Date(nowTime) : /* @__PURE__ */ new Date();
-    if (timezone !== void 0) {
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: timezone,
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false
-      });
-      const parts = formatter.formatToParts(now);
+    if (timezoneFormatter !== void 0) {
+      const parts = timezoneFormatter.formatToParts(now);
       const getPart = (type) => {
         const part = parts.find((p) => p.type === type);
         return part ? parseInt(part.value, 10) : 0;
@@ -419,6 +426,7 @@ function createClock(element, initialTime, options = {}) {
     customClockElapsedMs = initialTimeMs;
     customClockStartTimeMs = Date.now();
     setTimeToZero();
+    updateDisplay();
     if (invokeCallback && callback) {
       callback();
     }
@@ -428,37 +436,16 @@ function createClock(element, initialTime, options = {}) {
       return false;
     }
     completeCountdown(invokeCallback);
-    updateDisplay();
     return true;
   }
-  function _tick(now, timestamp) {
+  function _tick(now) {
     if (isStopped || isDestroyed) return;
     if (isSystemDrivenClock) {
       syncWithSystemTime(now);
-      updateDisplay();
-      return;
-    }
-    if (useAnimationFrame && timestamp !== void 0) {
-      if (lastTimestamp === 0) {
-        lastTimestamp = timestamp;
-      }
-      const delta = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-      accumulatedTime += delta;
-      const tickInterval = showCenti ? 10 : 1e3;
-      let shouldUpdate = false;
-      while (accumulatedTime >= tickInterval) {
-        accumulatedTime -= tickInterval;
-        shouldUpdate = true;
-      }
-      if (shouldUpdate) {
-        syncCustomTimeAnchor(now);
-        updateDisplay();
-      }
     } else {
       syncCustomTimeAnchor(now);
-      updateDisplay();
     }
+    updateDisplay();
   }
   const internalInstance = {
     getTime,
@@ -493,8 +480,11 @@ function createClock(element, initialTime, options = {}) {
     addClock(internalInstance);
   }
   function stopClock() {
-    if (!isStopped && !isSystemDrivenClock) {
-      customClockElapsedMs += Date.now() - customClockStartTimeMs;
+    if (!isStopped) {
+      runningPerfMs += performance.now() - runSegmentPerfStart;
+      if (!isSystemDrivenClock) {
+        customClockElapsedMs += Date.now() - customClockStartTimeMs;
+      }
     }
     isStopped = true;
     removeClock(internalInstance);
@@ -502,6 +492,7 @@ function createClock(element, initialTime, options = {}) {
   function startClock() {
     if (isDestroyed || !isStopped) return;
     isStopped = false;
+    runSegmentPerfStart = performance.now();
     if (!isSystemDrivenClock) {
       customClockStartTimeMs = Date.now();
     } else {
@@ -550,7 +541,9 @@ function createClock(element, initialTime, options = {}) {
       customClockElapsedMs = 0;
       customClockStartTimeMs = Date.now();
       lapRecords = [];
-      lastLapPerfTime = performance.now();
+      runningPerfMs = 0;
+      runSegmentPerfStart = performance.now();
+      lastLapRunningPerfMs = 0;
     } else if (initialTime) {
       time = parseTimeString(initialTime);
       initialTimeMs = time.hours * 36e5 + time.minutes * 6e4 + time.seconds * 1e3 + time.centiseconds * 10;
@@ -562,16 +555,19 @@ function createClock(element, initialTime, options = {}) {
     if (finalizeZeroCountdown(true)) {
       return;
     }
-    isStopped = false;
+    if (isStopped) {
+      isStopped = false;
+      runSegmentPerfStart = performance.now();
+    }
     updateDisplay();
     addClock(internalInstance);
   }
   function lap() {
     if (isDestroyed) return "";
     assertLapModeEnabled();
-    const now = performance.now();
-    const preciseElapsedMs = now - lastLapPerfTime;
-    lastLapPerfTime = now;
+    const currentRunningPerfMs = getRunningPerfMs();
+    const preciseElapsedMs = currentRunningPerfMs - lastLapRunningPerfMs;
+    lastLapRunningPerfMs = currentRunningPerfMs;
     const splitTime = formatTimeString(time, showCenti, showHour, showMinute, use12Hour);
     const lapNumber = lapRecords.length + 1;
     const totalCs = Math.round(preciseElapsedMs / 10);
@@ -663,7 +659,10 @@ function createClock(element, initialTime, options = {}) {
     if (isDestroyed) return;
     assertLapModeEnabled();
     lapRecords = [];
-    lastLapPerfTime = performance.now();
+    lastLapRunningPerfMs = getRunningPerfMs();
+  }
+  function getRunningPerfMs() {
+    return isStopped ? runningPerfMs : runningPerfMs + (performance.now() - runSegmentPerfStart);
   }
   function assertLapModeEnabled() {
     if (!useLap) {

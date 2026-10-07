@@ -161,14 +161,14 @@ export function createClock(element, initialTime, options = {}) {
     let isStopped = false;
     let isDestroyed = false;
     let lapRecords = [];
-    let lastLapPerfTime = performance.now();
+    // High-resolution running time (performance.now()), excluding paused periods, for lap deltas
+    let runningPerfMs = 0;
+    let runSegmentPerfStart = performance.now();
+    let lastLapRunningPerfMs = 0;
     // Custom clock anchoring
     let customClockStartTimeMs = Date.now();
     let customClockElapsedMs = 0;
     let initialTimeMs = 0;
-    // Animation frame state for this specific clock
-    let lastTimestamp = 0;
-    let accumulatedTime = 0;
     const useAnimationFrame = options.useAnimationFrame ?? false;
     const showCenti = options.showCenti ?? false;
     const showHour = options.showHour ?? true;
@@ -183,6 +183,15 @@ export function createClock(element, initialTime, options = {}) {
     const timezoneOffset = options.timezoneOffset;
     const timezone = options.timezone;
     const isSystemDrivenClock = !isCountdown && !isStopwatch && !initialTime;
+    const timezoneFormatter = timezone !== undefined
+        ? new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        })
+        : undefined;
     // If countdown mode, require initial time
     if (isCountdown && !initialTime) {
         throw new Error('Initial time required for countdown mode');
@@ -208,6 +217,8 @@ export function createClock(element, initialTime, options = {}) {
      * Updates the display with current time
      */
     function updateDisplay() {
+        if (isDestroyed)
+            return;
         const timeString = formatTimeString(time, showCenti, showHour, showMinute, use12Hour);
         if (element.textContent !== timeString) {
             element.textContent = timeString;
@@ -219,15 +230,8 @@ export function createClock(element, initialTime, options = {}) {
     function syncWithSystemTime(nowTime) {
         const now = nowTime ? new Date(nowTime) : new Date();
         // Use IANA timezone (DST-aware)
-        if (timezone !== undefined) {
-            const formatter = new Intl.DateTimeFormat('en-US', {
-                timeZone: timezone,
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
-            });
-            const parts = formatter.formatToParts(now);
+        if (timezoneFormatter !== undefined) {
+            const parts = timezoneFormatter.formatToParts(now);
             const getPart = (type) => {
                 const part = parts.find(p => p.type === type);
                 return part ? parseInt(part.value, 10) : 0;
@@ -326,6 +330,7 @@ export function createClock(element, initialTime, options = {}) {
         customClockElapsedMs = initialTimeMs;
         customClockStartTimeMs = Date.now();
         setTimeToZero();
+        updateDisplay();
         if (invokeCallback && callback) {
             callback();
         }
@@ -335,44 +340,23 @@ export function createClock(element, initialTime, options = {}) {
             return false;
         }
         completeCountdown(invokeCallback);
-        updateDisplay();
         return true;
     }
     /**
      * Internal tick logic driven by the global ticker
      */
-    function _tick(now, timestamp) {
+    function _tick(now) {
         if (isStopped || isDestroyed)
             return;
+        // Both the setTimeout and requestAnimationFrame paths derive the time from Date.now(),
+        // and updateDisplay() only touches the DOM when the rendered string changes
         if (isSystemDrivenClock) {
             syncWithSystemTime(now);
-            updateDisplay();
-            return;
-        }
-        if (useAnimationFrame && timestamp !== undefined) {
-            // rAF path - calculate delta time
-            if (lastTimestamp === 0) {
-                lastTimestamp = timestamp;
-            }
-            const delta = timestamp - lastTimestamp;
-            lastTimestamp = timestamp;
-            accumulatedTime += delta;
-            const tickInterval = showCenti ? 10 : 1000;
-            let shouldUpdate = false;
-            while (accumulatedTime >= tickInterval) {
-                accumulatedTime -= tickInterval;
-                shouldUpdate = true;
-            }
-            if (shouldUpdate) {
-                syncCustomTimeAnchor(now);
-                updateDisplay();
-            }
         }
         else {
-            // setTimeout path
             syncCustomTimeAnchor(now);
-            updateDisplay();
         }
+        updateDisplay();
     }
     const internalInstance = {
         getTime,
@@ -416,8 +400,11 @@ export function createClock(element, initialTime, options = {}) {
      * Stops the clock
      */
     function stopClock() {
-        if (!isStopped && !isSystemDrivenClock) {
-            customClockElapsedMs += Date.now() - customClockStartTimeMs;
+        if (!isStopped) {
+            runningPerfMs += performance.now() - runSegmentPerfStart;
+            if (!isSystemDrivenClock) {
+                customClockElapsedMs += Date.now() - customClockStartTimeMs;
+            }
         }
         isStopped = true;
         removeClock(internalInstance);
@@ -429,6 +416,7 @@ export function createClock(element, initialTime, options = {}) {
         if (isDestroyed || !isStopped)
             return;
         isStopped = false;
+        runSegmentPerfStart = performance.now();
         if (!isSystemDrivenClock) {
             customClockStartTimeMs = Date.now();
         }
@@ -501,7 +489,9 @@ export function createClock(element, initialTime, options = {}) {
             customClockElapsedMs = 0;
             customClockStartTimeMs = Date.now();
             lapRecords = [];
-            lastLapPerfTime = performance.now();
+            runningPerfMs = 0;
+            runSegmentPerfStart = performance.now();
+            lastLapRunningPerfMs = 0;
         }
         else if (initialTime) {
             time = parseTimeString(initialTime);
@@ -515,7 +505,10 @@ export function createClock(element, initialTime, options = {}) {
         if (finalizeZeroCountdown(true)) {
             return;
         }
-        isStopped = false;
+        if (isStopped) {
+            isStopped = false;
+            runSegmentPerfStart = performance.now();
+        }
         updateDisplay();
         addClock(internalInstance);
     }
@@ -526,9 +519,9 @@ export function createClock(element, initialTime, options = {}) {
         if (isDestroyed)
             return '';
         assertLapModeEnabled();
-        const now = performance.now();
-        const preciseElapsedMs = now - lastLapPerfTime;
-        lastLapPerfTime = now;
+        const currentRunningPerfMs = getRunningPerfMs();
+        const preciseElapsedMs = currentRunningPerfMs - lastLapRunningPerfMs;
+        lastLapRunningPerfMs = currentRunningPerfMs;
         const splitTime = formatTimeString(time, showCenti, showHour, showMinute, use12Hour);
         const lapNumber = lapRecords.length + 1;
         // Derive lap time components from high-resolution elapsed measurement
@@ -647,7 +640,13 @@ export function createClock(element, initialTime, options = {}) {
             return;
         assertLapModeEnabled();
         lapRecords = [];
-        lastLapPerfTime = performance.now();
+        lastLapRunningPerfMs = getRunningPerfMs();
+    }
+    /**
+     * Running time in milliseconds since the clock started (or was reset), excluding paused periods
+     */
+    function getRunningPerfMs() {
+        return isStopped ? runningPerfMs : runningPerfMs + (performance.now() - runSegmentPerfStart);
     }
     function assertLapModeEnabled() {
         if (!useLap) {
