@@ -1,14 +1,27 @@
 export interface TickerClock {
-  _tick: (now: number, timestamp?: number) => void;
+  _tick: (now: number) => void;
   _requestsAnimationFrame: () => boolean;
   _isSystemDriven: () => boolean;
   _getTimeoutDelay: (now: number) => number;
 }
 
 const activeClocks = new Set<TickerClock>();
+// Only one of these is ever pending; each is cleared as soon as its callback fires.
 let globalTimeoutId: number | null = null;
 let globalAnimationFrameId: number | null = null;
-let isGlobalPageVisible = true;
+
+function isPageVisible(): boolean {
+  return typeof document === 'undefined' || !document.hidden;
+}
+
+function anyClockRequestsAnimationFrame(): boolean {
+  for (const clock of activeClocks) {
+    if (clock._requestsAnimationFrame()) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function getGlobalTimeoutDelay(now: number): number {
   let nextDelay = Infinity;
@@ -28,21 +41,12 @@ function getGlobalTimeoutDelay(now: number): number {
 }
 
 function handleGlobalVisibilityChange(): void {
-  isGlobalPageVisible = !document.hidden;
-
-  if (!isGlobalPageVisible) {
-    if (globalAnimationFrameId !== null) {
-      window.cancelAnimationFrame(globalAnimationFrameId);
-      globalAnimationFrameId = null;
+  if (isPageVisible()) {
+    // Drop the hidden-tab fallback timeout so scheduling restarts from the current state
+    if (globalTimeoutId !== null) {
+      window.clearTimeout(globalTimeoutId);
+      globalTimeoutId = null;
     }
-    // Schedule a setTimeout fallback (hidden tabs may still be clamped by the browser)
-    if (globalTimeoutId === null) {
-      globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(Date.now()));
-    }
-  } else {
-    // Page became visible
-    window.clearTimeout(globalTimeoutId as number);
-    globalTimeoutId = null;
 
     // Resync system clocks immediately
     const now = Date.now();
@@ -51,15 +55,11 @@ function handleGlobalVisibilityChange(): void {
         clock._tick(now);
       }
     }
-
-    const requestsRaf = Array.from(activeClocks).some(c => c._requestsAnimationFrame());
-    if (requestsRaf) {
-      window.cancelAnimationFrame(globalAnimationFrameId as number);
-      globalAnimationFrameId = window.requestAnimationFrame(globalTick);
-    } else {
-      globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(now));
-    }
   }
+
+  // Hidden tabs don't run animation frames, so this switches to the setTimeout fallback when hidden
+  // and back to requestAnimationFrame when visible again
+  scheduleGlobalTick();
 }
 
 export function ensureVisibilityListener(): void {
@@ -83,16 +83,23 @@ function stopGlobalTicker(): void {
   }
 }
 
-function startGlobalTicker(): void {
-  const requestsRaf = Array.from(activeClocks).some(c => c._requestsAnimationFrame());
+/**
+ * Ensures exactly one tick is pending, using requestAnimationFrame when a clock asks for it and
+ * the page is visible, and setTimeout otherwise. Safe to call repeatedly, including mid-tick.
+ */
+function scheduleGlobalTick(): void {
+  if (activeClocks.size === 0) {
+    stopGlobalTicker();
+    return;
+  }
 
-  if (requestsRaf && isGlobalPageVisible) {
+  if (anyClockRequestsAnimationFrame() && isPageVisible()) {
     if (globalTimeoutId !== null) {
       window.clearTimeout(globalTimeoutId);
       globalTimeoutId = null;
     }
     if (globalAnimationFrameId === null) {
-      globalAnimationFrameId = window.requestAnimationFrame(globalTick);
+      globalAnimationFrameId = window.requestAnimationFrame(onAnimationFrame);
     }
   } else {
     if (globalAnimationFrameId !== null) {
@@ -100,28 +107,44 @@ function startGlobalTicker(): void {
       globalAnimationFrameId = null;
     }
     if (globalTimeoutId === null) {
-      globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(Date.now()));
+      globalTimeoutId = window.setTimeout(onTimeout, getGlobalTimeoutDelay(Date.now()));
     }
   }
 }
 
-function globalTick(timestamp?: number): void {
-  if (activeClocks.size === 0) {
-    stopGlobalTicker();
-    return;
-  }
+function onTimeout(): void {
+  globalTimeoutId = null;
+  globalTick();
+}
 
+function onAnimationFrame(): void {
+  globalAnimationFrameId = null;
+  globalTick();
+}
+
+function globalTick(): void {
   const now = Date.now();
-  const requestsRaf = Array.from(activeClocks).some(c => c._requestsAnimationFrame());
+  const errors: unknown[] = [];
 
-  for (const clock of activeClocks) {
-    clock._tick(now, timestamp);
+  // Iterate over a snapshot: countdown callbacks may create or destroy clocks mid-tick
+  for (const clock of Array.from(activeClocks)) {
+    try {
+      clock._tick(now);
+    } catch (error) {
+      errors.push(error);
+    }
   }
 
-  if (requestsRaf && isGlobalPageVisible) {
-    globalAnimationFrameId = window.requestAnimationFrame(globalTick);
-  } else {
-    globalTimeoutId = window.setTimeout(globalTick, getGlobalTimeoutDelay(now));
+  // Schedule the next tick before surfacing errors, so one failing callback can't stop every clock
+  scheduleGlobalTick();
+
+  if (errors.length > 0) {
+    for (const error of errors.slice(1)) {
+      queueMicrotask(() => {
+        throw error;
+      });
+    }
+    throw errors[0];
   }
 }
 
@@ -130,24 +153,17 @@ export function addClock(clock: TickerClock): void {
   if (clock._requestsAnimationFrame()) {
     ensureVisibilityListener();
   }
-  startGlobalTicker();
+  scheduleGlobalTick();
 }
 
 export function removeClock(clock: TickerClock): void {
   activeClocks.delete(clock);
 
-  if (activeClocks.size === 0) {
-    stopGlobalTicker();
-    detachVisibilityListener();
-    return;
-  }
-
-  const hasRafClock = Array.from(activeClocks).some(c => c._requestsAnimationFrame());
-  if (!hasRafClock) {
+  if (!anyClockRequestsAnimationFrame()) {
     detachVisibilityListener();
   }
 
-  startGlobalTicker();
+  scheduleGlobalTick();
 }
 
 export function resetGlobalStateForTesting(): void {

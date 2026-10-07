@@ -2469,4 +2469,266 @@ describe('New JS Clock', () => {
       }
     });
   });
+
+  describe('Regression Fixes (1.0.1)', () => {
+    test('should keep other clocks ticking when a countdown callback throws', () => {
+      const stopwatchElement = document.createElement('div');
+      createClock(stopwatchElement, undefined, { stopwatch: true });
+      createClock(container, '00:00:01', {
+        countdown: true,
+        callback: () => {
+          throw new Error('callback failure');
+        }
+      });
+
+      expect(() => jest.advanceTimersByTime(1000)).toThrow('callback failure');
+      expect(stopwatchElement.textContent).toBe('00:00:01');
+
+      jest.advanceTimersByTime(5000);
+      expect(stopwatchElement.textContent).toBe('00:00:06');
+
+      // Clocks created after the failure must still be scheduled
+      const lateElement = document.createElement('div');
+      createClock(lateElement, undefined, { stopwatch: true });
+      jest.advanceTimersByTime(2000);
+      expect(lateElement.textContent).toBe('00:00:02');
+    });
+
+    test('should surface every error when several callbacks throw in the same tick', () => {
+      const otherElement = document.createElement('div');
+      createClock(container, '00:00:01', {
+        countdown: true,
+        callback: () => {
+          throw new Error('first failure');
+        }
+      });
+      createClock(otherElement, '00:00:01', {
+        countdown: true,
+        callback: () => {
+          throw new Error('second failure');
+        }
+      });
+
+      const queueMicrotaskSpy = jest.spyOn(globalThis, 'queueMicrotask').mockImplementation(() => {});
+
+      expect(() => jest.advanceTimersByTime(1000)).toThrow('first failure');
+      expect(queueMicrotaskSpy).toHaveBeenCalledTimes(1);
+
+      const rethrowSecond = queueMicrotaskSpy.mock.calls[0][0] as () => void;
+      expect(rethrowSecond).toThrow('second failure');
+      expect(otherElement.textContent).toBe('00:00:00');
+    });
+
+    test('should render 00:00:00 before invoking the countdown callback', () => {
+      let textDuringCallback = '';
+      createClock(container, '00:00:02', {
+        countdown: true,
+        callback: () => {
+          textDuringCallback = container.textContent ?? '';
+        }
+      });
+
+      jest.advanceTimersByTime(2000);
+      expect(textDuringCallback).toBe('00:00:00');
+    });
+
+    test('should render 00:00:00 before invoking the callback of a zero countdown', () => {
+      let textDuringCallback = '';
+      createClock(container, '00:00:00', {
+        countdown: true,
+        callback: () => {
+          textDuringCallback = container.textContent ?? '';
+        }
+      });
+
+      expect(textDuringCallback).toBe('00:00:00');
+    });
+
+    test('should leave the element empty when destroyed from the countdown callback', () => {
+      const clock = createClock(container, '00:00:01', {
+        countdown: true,
+        callback: () => clock.destroy()
+      });
+
+      jest.advanceTimersByTime(1000);
+      expect(container.textContent).toBe('');
+      expect(clock.isRunning()).toBe(false);
+    });
+
+    test('should leave the element empty when destroyed from the callback of setTime("00:00:00")', () => {
+      const clock = createClock(container, '00:00:10', {
+        countdown: true,
+        callback: () => clock.destroy()
+      });
+
+      clock.setTime('00:00:00');
+      expect(container.textContent).toBe('');
+    });
+
+    test('should exclude paused time from lap deltas', () => {
+      const clock = createClock(container, undefined, { stopwatch: true, lap: true });
+
+      jest.advanceTimersByTime(5000);
+      clock.stopClock();
+      jest.advanceTimersByTime(60000);
+      clock.startClock();
+      jest.advanceTimersByTime(1000);
+
+      expect(clock.lap()).toBe('Lap 1: 00:00:06 (00:00:06)');
+      expect(clock.getLapRecords()[0].preciseElapsedMs).toBeCloseTo(6000, 0);
+
+      jest.advanceTimersByTime(2000);
+      expect(clock.lap()).toBe('Lap 2: 00:00:02 (00:00:08)');
+
+      clock.destroy();
+    });
+
+    test('should measure laps recorded while paused and after clearLaps while paused', () => {
+      const clock = createClock(container, undefined, { stopwatch: true, lap: true, lapMode: 'laps' });
+
+      jest.advanceTimersByTime(3000);
+      clock.stopClock();
+      jest.advanceTimersByTime(10000);
+      expect(clock.lap()).toBe('Lap 1: 00:00:03');
+
+      clock.clearLaps();
+      jest.advanceTimersByTime(10000);
+      clock.startClock();
+      jest.advanceTimersByTime(4000);
+      expect(clock.lap()).toBe('Lap 1: 00:00:04');
+
+      clock.destroy();
+    });
+
+    test('should restart lap timing on reset of a paused stopwatch', () => {
+      const clock = createClock(container, undefined, { stopwatch: true, lap: true, lapMode: 'laps' });
+
+      jest.advanceTimersByTime(3000);
+      clock.stopClock();
+      jest.advanceTimersByTime(10000);
+      clock.reset();
+      jest.advanceTimersByTime(2000);
+
+      expect(clock.lap()).toBe('Lap 1: 00:00:02');
+      clock.destroy();
+    });
+
+    test('should tick an rAF clock created while the page is already hidden', () => {
+      setDocumentHidden(true);
+      // Browsers don't run animation frames in hidden tabs
+      jest.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+
+      const callback = jest.fn();
+      createClock(container, '00:00:02', { countdown: true, useAnimationFrame: true, callback });
+
+      jest.advanceTimersByTime(2000);
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe('00:00:00');
+    });
+
+    test('should use rAF for a new clock after rAF clocks were removed while hidden', () => {
+      const first = createClock(container, undefined, { stopwatch: true, useAnimationFrame: true });
+      setDocumentHidden(true);
+      document.dispatchEvent(new Event('visibilitychange'));
+      first.destroy();
+
+      // The visibility listener is detached at this point, so no event reaches the ticker
+      setDocumentHidden(false);
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      const rafSpy = jest.spyOn(window, 'requestAnimationFrame');
+      const second = createClock(container, undefined, { stopwatch: true, useAnimationFrame: true });
+      expect(rafSpy).toHaveBeenCalled();
+      second.destroy();
+    });
+
+    test.each([10300, 10700, 10950])(
+      'should fire an rAF countdown on time after pause and resume (paused %ims)',
+      (pauseMs) => {
+        // Drive animation frames manually so frame timing doesn't depend on earlier tests
+        let pendingFrame: FrameRequestCallback | null = null;
+        let frameTimestamp = 0;
+        jest.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+          pendingFrame = cb;
+          return 1;
+        });
+        jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
+          pendingFrame = null;
+        });
+        const runFrames = (durationMs: number): void => {
+          for (let elapsed = 0; elapsed < durationMs; elapsed += 16) {
+            jest.advanceTimersByTime(16);
+            frameTimestamp += 16;
+            const frame = pendingFrame;
+            pendingFrame = null;
+            frame?.(frameTimestamp);
+          }
+        };
+
+        const startedAt = Date.now();
+        let firedAt = 0;
+        const clock = createClock(container, '00:00:05', {
+          countdown: true,
+          useAnimationFrame: true,
+          callback: () => {
+            firedAt = Date.now();
+          }
+        });
+        // 1.0.0 cached page visibility across clocks; a visible event pins it regardless of test order
+        document.dispatchEvent(new Event('visibilitychange'));
+
+        runFrames(1504);
+        clock.stopClock();
+        jest.advanceTimersByTime(pauseMs);
+        frameTimestamp += pauseMs;
+        clock.startClock();
+
+        const expectedFireAt = 5000 + pauseMs;
+        // 400ms before the end, 1.4s remain and the display floors to whole seconds
+        runFrames(expectedFireAt - (Date.now() - startedAt) - 400);
+        expect(container.textContent).toBe('00:00:01');
+
+        runFrames(1000);
+        // Allow one animation frame of latency
+        expect(firedAt - startedAt).toBeGreaterThanOrEqual(expectedFireAt);
+        expect(firedAt - startedAt).toBeLessThanOrEqual(expectedFireAt + 16);
+      }
+    );
+
+    test('should not start a second scheduling loop when an rAF clock is created inside a callback', () => {
+      const rafSpy = jest.spyOn(window, 'requestAnimationFrame');
+      const setTimeoutSpy = jest.spyOn(window, 'setTimeout');
+      const rafElement = document.createElement('div');
+
+      createClock(container, '00:00:01', {
+        countdown: true,
+        callback: () => {
+          createClock(rafElement, undefined, { stopwatch: true, useAnimationFrame: true, showCenti: true });
+        }
+      });
+
+      jest.advanceTimersByTime(1000);
+      rafSpy.mockClear();
+      setTimeoutSpy.mockClear();
+
+      jest.advanceTimersByTime(1000);
+      // One loop at ~16ms per frame is ~63 requests per second
+      expect(rafSpy.mock.calls.length).toBeLessThanOrEqual(64);
+      expect(setTimeoutSpy).not.toHaveBeenCalled();
+      expect(rafElement.textContent).toMatch(/^00:00:0[01]:\d{2}$/);
+    });
+
+    test('should create the IANA timezone formatter once instead of on every tick', () => {
+      const dateTimeFormatSpy = jest.spyOn(Intl, 'DateTimeFormat');
+
+      const clock = createClock(container, undefined, { timezone: 'Asia/Tokyo', showCenti: true });
+      const callsAfterCreation = dateTimeFormatSpy.mock.calls.length;
+
+      jest.advanceTimersByTime(1000);
+      expect(dateTimeFormatSpy.mock.calls.length).toBe(callsAfterCreation);
+      expect(clock.getTime()).toBe(formatIanaTime(new Date(Date.now()), 'Asia/Tokyo', { showCenti: true }));
+
+      clock.destroy();
+    });
+  });
 });

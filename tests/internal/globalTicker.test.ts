@@ -93,4 +93,52 @@ describe('Global Ticker Internal Scheduler', () => {
     removeClock(slowClock);
     removeClock(fastClock);
   });
+
+  test('should fall back to a 1000ms timeout when no clock reports a finite delay', () => {
+    const setTimeoutSpy = jest.spyOn(window, 'setTimeout');
+
+    const clock: TickerClock = {
+      _tick: jest.fn(),
+      _requestsAnimationFrame: () => false,
+      _isSystemDriven: () => false,
+      _getTimeoutDelay: () => Infinity
+    };
+
+    addClock(clock);
+    expect(setTimeoutSpy.mock.calls[setTimeoutSpy.mock.calls.length - 1]?.[1]).toBe(1000);
+
+    removeClock(clock);
+  });
+
+  test('should keep a single pending tick when clocks are added and removed mid-tick', () => {
+    const setTimeoutSpy = jest.spyOn(window, 'setTimeout');
+
+    const helper: TickerClock = {
+      _tick: jest.fn(),
+      _requestsAnimationFrame: () => false,
+      _isSystemDriven: () => false,
+      _getTimeoutDelay: () => 100
+    };
+    const churner: TickerClock = {
+      _tick: () => {
+        removeClock(helper);
+        addClock(helper);
+      },
+      _requestsAnimationFrame: () => false,
+      _isSystemDriven: () => false,
+      _getTimeoutDelay: () => 100
+    };
+
+    addClock(churner);
+    addClock(helper);
+    setTimeoutSpy.mockClear();
+
+    jest.advanceTimersByTime(100);
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(1);
+
+    removeClock(churner);
+    removeClock(helper);
+    expect(jest.getTimerCount()).toBe(0);
+  });
 });
